@@ -1,5 +1,5 @@
 # structogqlgen
-StructsToGqlGenTypes is a developer tool designed to streamline the integration between Go applications and GraphQL servers. This tool automatically converts Golang structs into GraphQL types that are readily usable with the popular GraphQL framework, gqlgen. It aims to reduce the boilerplate code required to define GraphQL schemas manually, thus accelerating the development of GraphQL APIs in Go projects.
+StructsToGqlGenTypes is a tool that helps to automatically converts Golang structs into GraphQL types that are readily usable with the popular GraphQL framework, gqlgen. It aims to reduce the boilerplate code required to define GraphQL schemas manually, thus accelerating the development of GraphQL APIs in Go projects.
 
 # Features
 - Automatic Conversion: Convert your existing Golang structs into GraphQL types with a single command, preserving struct relationships and data types.
