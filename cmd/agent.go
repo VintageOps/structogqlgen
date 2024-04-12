@@ -39,8 +39,8 @@ func Execute() {
 		// For each struct we will build its graphQl Type
 		for _, structType := range structsFound {
 			// Build GraphQL type for structType
-			fmt.Println(structType)
-			structGqlGenType, err := conversion.BuildGqlgenType(structType)
+			fmt.Println(structType.Name)
+			structGqlGenType, err := conversion.BuildGqlgenType(structType.Obj)
 			if err != nil {
 				return err
 			}

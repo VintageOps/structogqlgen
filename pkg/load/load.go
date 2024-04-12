@@ -15,9 +15,9 @@ type StructDiscovered struct {
 }
 
 // FindStructsInPkg finds all structs defined in a Source File.
-func FindStructsInPkg(sourceFilePath string) ([]*types.Struct, error) {
+func FindStructsInPkg(sourceFilePath string) ([]StructDiscovered, error) {
 
-	var structTypes []*types.Struct
+	var structTypes []StructDiscovered
 
 	// Parse the provided source file
 	fset := token.NewFileSet()
@@ -41,8 +41,10 @@ func FindStructsInPkg(sourceFilePath string) ([]*types.Struct, error) {
 		if typeName, ok := obj.(*types.TypeName); ok {
 			// Check if the TypeName's underlying type is a Struct
 			if structType, ok := typeName.Type().Underlying().(*types.Struct); ok {
-				fmt.Printf("Struct: %s\n", typeName.Name())
-				structTypes = append(structTypes, structType)
+				var newStruct StructDiscovered
+				newStruct.Name = typeName
+				newStruct.Obj = structType
+				structTypes = append(structTypes, newStruct)
 			}
 		}
 	}

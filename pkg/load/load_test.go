@@ -6,57 +6,46 @@ import (
 )
 
 func TestFindStructsInPkg(t *testing.T) {
-	tests := []struct {
-		name      string
-		file      string
-		wantError bool
+	var tests = []struct {
+		sourceFilePath string
+		expectedError  string
+		expectedLen    int
 	}{
-		{
-			name:      "existing file with structs",
-			file:      "./testdata/structs.go",
-			wantError: false,
-		},
-		{
-			name:      "existing file without structs",
-			file:      "./testdata/no_structs.go",
-			wantError: true,
-		},
-		{
-			name:      "non-existing file",
-			file:      "./invalid/path.go",
-			wantError: true,
-		},
+		{"valid.go", "", 1},
+		{"empty.go", "no structs found", 0},
+		{"invalid.go", "failed to parsed the file, error was: invalid input", 0},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := FindStructsInPkg(tt.file)
-			if (err != nil) != tt.wantError {
-				t.Errorf("FindStructsInPkg() error = %v, wantError %v", err, tt.wantError)
+	for _, testcase := range tests {
+		t.Run(testcase.sourceFilePath, func(t *testing.T) {
+			// Run the FindStructsInPkg function
+			result, err := FindStructsInPkg(testcase.sourceFilePath)
+
+			if err != nil && err.Error() != testcase.expectedError {
+				t.Errorf("expected error '%s', got '%s'", testcase.expectedError, err)
+			}
+
+			if len(result) != testcase.expectedLen {
+				t.Errorf("expected %d structs, got %d", testcase.expectedLen, len(result))
 			}
 		})
 	}
 }
 
 func TestMain(m *testing.M) {
-	setup()
-	code := m.Run()
-	teardown()
-	os.Exit(code)
-}
+	// generate test data files
+	os.WriteFile("valid.go", []byte("package foo; type Bar struct { Counter int }"), 0600)
+	os.WriteFile("empty.go", []byte("package foo; type Foo int"), 0600)
+	os.WriteFile("invalid.go", []byte("invalid syntax"), 0600)
 
-func setup() {
-	os.MkdirAll("./testdata", os.ModePerm)
-	writeTestFile("./testdata/structs.go", "package testdata\n\n type TestStruct struct{}")
-	writeTestFile("./testdata/no_structs.go", "package testdata")
-}
+	// Run the test suite
+	retCode := m.Run()
 
-func teardown() {
-	os.RemoveAll("./testdata")
-}
+	// clean up test data files
+	os.Remove("valid.go")
+	os.Remove("empty.go")
+	os.Remove("invalid.go")
 
-func writeTestFile(path, content string) {
-	file, _ := os.Create(path)
-	defer file.Close()
-	_, _ = file.WriteString(content)
+	// pass on the exit code
+	os.Exit(retCode)
 }
