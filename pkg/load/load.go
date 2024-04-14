@@ -9,6 +9,8 @@ import (
 	"go/types"
 )
 
+// Doc: https://github.com/golang/example/blob/master/gotypes/go-types.md
+
 type StructDiscovered struct {
 	Name *types.TypeName
 	Obj  *types.Struct
@@ -27,6 +29,9 @@ func FindStructsInPkg(sourceFilePath string) ([]StructDiscovered, error) {
 	}
 
 	// Type checks the parsed AST using types.Config.Check
+	// A Config controls various options of the type checker.
+	// The defaults work fine except for one setting:
+	// we must specify how to deal with imports.
 	conf := types.Config{Importer: importer.Default()}
 	pkg, err := conf.Check("mypkg", fset, []*ast.File{file}, nil)
 	if err != nil {
@@ -37,7 +42,7 @@ func FindStructsInPkg(sourceFilePath string) ([]StructDiscovered, error) {
 	scope := pkg.Scope()
 	for _, name := range scope.Names() {
 		obj := scope.Lookup(name)
-
+		// Check if this is  a type declaration (defined or alias)
 		if typeName, ok := obj.(*types.TypeName); ok {
 			// Check if the TypeName's underlying type is a Struct
 			if structType, ok := typeName.Type().Underlying().(*types.Struct); ok {
