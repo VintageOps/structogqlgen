@@ -30,8 +30,7 @@ func (e ConvertCustomError) Error() string {
 }
 
 const (
-	nestedStructErr = ConvertCustomError("nested struct")
-	invalidTypeErr  = ConvertCustomError("invalid type")
+	invalidTypeErr = ConvertCustomError("invalid type")
 )
 
 // BuildGqlgenType builds a gqlgen Type using a struct definition
@@ -111,12 +110,19 @@ func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 		}
 		gqlFieldDef.NestedCustomType = append(gqlFieldDef.NestedCustomType, nestStructTypeDef)
 		return nil
+	case *types.Named:
+		if _, ok := t.Underlying().(*types.Struct); ok {
+			gqlFieldDef.GqlFieldType = t.Obj().Id()
+			return nil
+		} else {
+			gqlFieldDef.GqlFieldType = t.Obj().Name()
+			gqlFieldDef.IsScalar = true
+		}
+		return nil
 	case *types.Interface:
+		// unNamed Interfaces Type (named ones are *types.Named)
 		gqlFieldDef.GqlFieldType = t.String()
 		gqlFieldDef.IsScalar = true
-		return nil
-	case *types.Named:
-		gqlFieldDef.GqlFieldType = t.Obj().Id()
 		return nil
 	default:
 		return fmt.Errorf("%s: %v", invalidTypeErr, t.String())
@@ -145,16 +151,45 @@ func GqlTypePrettyPrint(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse
 	var gqlType bytes.Buffer
 
 	// Write the Scalar on top of the string
+	scalarOutput := gqlPrettyPrintScalar(gqlTypeDefs)
+	if scalarOutput != "" {
+		gqlType.WriteString(scalarOutput)
+	}
+	gqlType.WriteString("\n")
+
+	// Write the Type Definition
+	gqlTypeDefinition, err := gqlPrettyPrintTypes(gqlTypeDefs, useTags, tagsToUse)
+	if err != nil {
+		return "", err
+	}
+	gqlType.WriteString(gqlTypeDefinition)
+	return gqlType.String(), nil
+}
+
+func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition) string {
+	var gqlScalarType bytes.Buffer
+
 	for _, gqlTypeDef := range gqlTypeDefs {
 		for _, field := range gqlTypeDef.GqlFields {
 			if field.IsScalar {
-				gqlType.WriteString(fmt.Sprintf("scalar %s\n", field.GqlFieldType))
+				gqlScalarType.WriteString(fmt.Sprintf("scalar %s\n", field.GqlFieldType))
+			}
+			if len(field.NestedCustomType) != 0 {
+				NestedScalar := gqlPrettyPrintScalar(field.NestedCustomType)
+				if NestedScalar != "" {
+					gqlScalarType.WriteString(NestedScalar)
+				}
 			}
 		}
 	}
+	return gqlScalarType.String()
+}
 
-	// Write the Type Definition
+func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse string) (string, error) {
+	var gqlType bytes.Buffer
 	for _, gqlTypeDef := range gqlTypeDefs {
+		var nestedCustomToWrite string
+		var err error
 		gqlType.WriteString(fmt.Sprintf("type %s {\n", gqlTypeDef.GqlTypeName))
 		for _, field := range gqlTypeDef.GqlFields {
 			if useTags {
@@ -163,9 +198,17 @@ func GqlTypePrettyPrint(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse
 			} else {
 				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldName, field.GqlFieldType))
 			}
+			if len(field.NestedCustomType) != 0 {
+				nestedCustomToWrite, err = gqlPrettyPrintTypes(field.NestedCustomType, useTags, tagsToUse)
+				if err != nil {
+					return "", err
+				}
+			}
 		}
-		gqlType.WriteString("}\n")
+		gqlType.WriteString("}\n\n")
+		if nestedCustomToWrite != "" {
+			gqlType.WriteString(nestedCustomToWrite)
+		}
 	}
-
 	return gqlType.String(), nil
 }
