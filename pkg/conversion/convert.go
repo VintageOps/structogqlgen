@@ -58,75 +58,88 @@ func BuildGqlgenType(structDef load.StructDiscovered) (GqlTypeDefinition, error)
 func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 	switch t := goType.(type) {
 	case *types.Basic:
-		baseType, err := ConvertBaseType(t)
-		if err != nil {
-			return err
-		}
-		gqlFieldDef.GqlFieldType = baseType
-		return nil
+		return convertBasicType(t, gqlFieldDef)
 	case *types.Slice:
-		var sliceTypeSql GqlFieldsDefinition
-		err := ConvertType(t.Elem(), &sliceTypeSql)
-		if err != nil {
-			return err
-		}
-		gqlFieldDef.GqlFieldType = fmt.Sprintf("[%s]", sliceTypeSql.GqlFieldType)
-		return nil
+		return convertSliceType(t, gqlFieldDef)
 	case *types.Pointer:
-		var pointerTypeSql GqlFieldsDefinition
-		err := ConvertType(t.Elem(), &pointerTypeSql)
-		if err != nil {
-			return err
-		}
-		gqlFieldDef.GqlFieldType = pointerTypeSql.GqlFieldType
-		return nil
+		return convertPointerType(t, gqlFieldDef)
 	case *types.Map:
-		// Need to define new graphql type with key being of type key and value of type value
-
-		// Define the fields for the new struct as key/values
-		newStructFieldsName := []string{"key", "values"}
-		newStructfields := []*types.Var{
-			types.NewVar(token.NoPos, nil, newStructFieldsName[0], t.Key()),
-			types.NewVar(token.NoPos, nil, newStructFieldsName[1], t.Elem()),
-		}
-
-		// Define the tags for each field if necessary
-		tags := []string{"", ""} // No tags in this example. TODO: Check when Tags is used
-
-		// Create the struct type
-		structType := types.NewStruct(newStructfields, tags)
-
-		// Create the named type
-		newStructName := fmt.Sprintf("%sMap", gqlFieldDef.GqlFieldName)
-		gqlFieldDef.GqlFieldType = newStructName
-		newStruct := types.NewNamed(types.NewTypeName(token.NoPos, nil, newStructName, nil), structType, nil)
-
-		var newStructDiscManual load.StructDiscovered
-		newStructDiscManual.Name = newStruct.Obj()
-		newStructDiscManual.Obj, _ = newStruct.Underlying().(*types.Struct)
-		nestStructTypeDef, err := BuildGqlgenType(newStructDiscManual)
-		if err != nil {
-			return err
-		}
-		gqlFieldDef.NestedCustomType = append(gqlFieldDef.NestedCustomType, nestStructTypeDef)
-		return nil
+		return convertMapType(t, gqlFieldDef)
 	case *types.Named:
-		if _, ok := t.Underlying().(*types.Struct); ok {
-			gqlFieldDef.GqlFieldType = t.Obj().Id()
-			return nil
-		} else {
-			gqlFieldDef.GqlFieldType = t.Obj().Name()
-			gqlFieldDef.IsScalar = true
-		}
-		return nil
+		return convertNamedType(t, gqlFieldDef)
 	case *types.Interface:
-		// unNamed Interfaces Type (named ones are *types.Named)
-		gqlFieldDef.GqlFieldType = t.String()
-		gqlFieldDef.IsScalar = true
-		return nil
+		return convertInterfaceType(t, gqlFieldDef)
 	default:
 		return fmt.Errorf("%s: %v", invalidTypeErr, t.String())
 	}
+}
+
+func convertBasicType(t *types.Basic, gqlFieldDef *GqlFieldsDefinition) error {
+	baseType, err := ConvertBaseType(t)
+	if err != nil {
+		return err
+	}
+	gqlFieldDef.GqlFieldType = baseType
+	return nil
+}
+
+func convertSliceType(t *types.Slice, gqlFieldDef *GqlFieldsDefinition) error {
+	var sliceTypeSql GqlFieldsDefinition
+	err := ConvertType(t.Elem(), &sliceTypeSql)
+	if err != nil {
+		return err
+	}
+	gqlFieldDef.GqlFieldType = fmt.Sprintf("[%s]", sliceTypeSql.GqlFieldType)
+	return nil
+}
+
+func convertPointerType(t *types.Pointer, gqlFieldDef *GqlFieldsDefinition) error {
+	var pointerTypeSql GqlFieldsDefinition
+	err := ConvertType(t.Elem(), &pointerTypeSql)
+	if err != nil {
+		return err
+	}
+	gqlFieldDef.GqlFieldType = pointerTypeSql.GqlFieldType
+	return nil
+}
+
+func convertMapType(t *types.Map, gqlFieldDef *GqlFieldsDefinition) error {
+	newStructFieldsName := []string{"key", "values"}
+	newStructfields := []*types.Var{
+		types.NewVar(token.NoPos, nil, newStructFieldsName[0], t.Key()),
+		types.NewVar(token.NoPos, nil, newStructFieldsName[1], t.Elem()),
+	}
+	tags := []string{"", ""}
+	structType := types.NewStruct(newStructfields, tags)
+	newStructName := fmt.Sprintf("%sMap", gqlFieldDef.GqlFieldName)
+	gqlFieldDef.GqlFieldType = newStructName
+	newStruct := types.NewNamed(types.NewTypeName(token.NoPos, nil, newStructName, nil), structType, nil)
+	var newStructDiscManual load.StructDiscovered
+	newStructDiscManual.Name = newStruct.Obj()
+	newStructDiscManual.Obj, _ = newStruct.Underlying().(*types.Struct)
+	nestStructTypeDef, err := BuildGqlgenType(newStructDiscManual)
+	if err != nil {
+		return err
+	}
+	gqlFieldDef.NestedCustomType = append(gqlFieldDef.NestedCustomType, nestStructTypeDef)
+	return nil
+}
+
+func convertNamedType(t *types.Named, gqlFieldDef *GqlFieldsDefinition) error {
+	if _, ok := t.Underlying().(*types.Struct); ok {
+		gqlFieldDef.GqlFieldType = t.Obj().Id()
+		return nil
+	} else {
+		gqlFieldDef.GqlFieldType = t.Obj().Name()
+		gqlFieldDef.IsScalar = true
+	}
+	return nil
+}
+
+func convertInterfaceType(t *types.Interface, gqlFieldDef *GqlFieldsDefinition) error {
+	gqlFieldDef.GqlFieldType = t.String()
+	gqlFieldDef.IsScalar = true
+	return nil
 }
 
 func ConvertBaseType(goBasicType *types.Basic) (string, error) {
