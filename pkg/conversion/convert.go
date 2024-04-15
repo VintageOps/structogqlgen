@@ -2,11 +2,25 @@ package conversion
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"github.com/VintageOps/structogqlgen/pkg/load"
+	"go/token"
 	"go/types"
 )
+
+// GqlTypeDefinition contains the definition of a graphQl Type
+type GqlTypeDefinition struct {
+	GqlTypeName string                // GqlTypeName is the name of a graphQL type.
+	GqlFields   []GqlFieldsDefinition // GqlFields is a slice of GqlFieldsDefinition, which represents the fields of a GraphQL type.
+}
+
+type GqlFieldsDefinition struct {
+	GqlFieldName     string              // GqlFieldName represents the name of a graphQL field
+	GqlFieldType     string              // GqlFieldType is a string representing the type of GraphQL field
+	GqlFieldTags     string              // GqlFieldTags represents the tags of a GraphQL field
+	IsScalar         bool                // True if this field need to define a Scalar which will be type Name
+	NestedCustomType []GqlTypeDefinition // NestedCustomType represents any custom types that might be needed to be defined for this type.
+}
 
 // ConvertCustomError represents a custom error type that can be used in Go programs.
 type ConvertCustomError string
@@ -15,65 +29,98 @@ func (e ConvertCustomError) Error() string {
 	return string(e)
 }
 
-// nestedStructErr is a constant of type ConvertCustomError that represents an error
-// indicating that a nested struct has occurred.
 const (
 	nestedStructErr = ConvertCustomError("nested struct")
 	invalidTypeErr  = ConvertCustomError("invalid type")
 )
 
 // BuildGqlgenType builds a gqlgen Type using a struct definition
-func BuildGqlgenType(structDef load.StructDiscovered) (string, error) {
+func BuildGqlgenType(structDef load.StructDiscovered) (GqlTypeDefinition, error) {
 
-	var gqlType bytes.Buffer
+	var gqlTypeDef GqlTypeDefinition
 
-	gqlType.WriteString(fmt.Sprintf("type %s struct {\n", structDef.Name.Id()))
+	gqlTypeDef.GqlTypeName = structDef.Name.Id()
+	gqlTypeDef.GqlFields = make([]GqlFieldsDefinition, structDef.Obj.NumFields())
 	for i := 0; i < structDef.Obj.NumFields(); i++ {
 		field := structDef.Obj.Field(i)
 		tags := structDef.Obj.Tag(i)
-		gqlFieldType, err := ConvertType(field.Type())
-		if err != nil && !errors.Is(err, nestedStructErr) {
-			//return "", err
-			fmt.Println(err)
-		}
-		if errors.Is(err, nestedStructErr) {
-			// Nested Struct
-			gqlType.WriteString(fmt.Sprintf("  %s: %s! %s\n", field.Name(), field.Type().String(), tags))
-		} else {
-			gqlType.WriteString(fmt.Sprintf("  %s: %s! %s\n", field.Name(), gqlFieldType, tags))
+		// Populate Field Name and Tag
+		gqlTypeDef.GqlFields[i] = GqlFieldsDefinition{GqlFieldName: field.Name(), GqlFieldTags: tags}
+		// Find Field Type and Scalars
+		err := ConvertType(field.Type(), &gqlTypeDef.GqlFields[i])
+		if err != nil {
+			return gqlTypeDef, err
 		}
 	}
-	gqlType.WriteString("}\n")
 
-	return gqlType.String(), nil
+	return gqlTypeDef, nil
 }
 
-func ConvertType(goType types.Type) (string, error) {
+func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 	switch t := goType.(type) {
 	case *types.Basic:
-		return ConvertBaseType(t)
+		baseType, err := ConvertBaseType(t)
+		if err != nil {
+			return err
+		}
+		gqlFieldDef.GqlFieldType = baseType
+		return nil
 	case *types.Slice:
-		underlyingType, err := ConvertType(t.Elem())
+		var sliceTypeSql GqlFieldsDefinition
+		err := ConvertType(t.Elem(), &sliceTypeSql)
 		if err != nil {
-			return "", err
+			return err
 		}
-		return fmt.Sprintf("[%s]", underlyingType), nil
+		gqlFieldDef.GqlFieldType = fmt.Sprintf("[%s]", sliceTypeSql.GqlFieldType)
+		return nil
 	case *types.Pointer:
-		underlyingType, err := ConvertType(t.Elem())
+		var pointerTypeSql GqlFieldsDefinition
+		err := ConvertType(t.Elem(), &pointerTypeSql)
 		if err != nil {
-			return "", err
+			return err
 		}
-		return underlyingType, nil
+		gqlFieldDef.GqlFieldType = pointerTypeSql.GqlFieldType
+		return nil
 	case *types.Map:
 		// Need to define new graphql type with key being of type key and value of type value
+
+		// Define the fields for the new struct as key/values
+		newStructFieldsName := []string{"key", "values"}
+		newStructfields := []*types.Var{
+			types.NewVar(token.NoPos, nil, newStructFieldsName[0], t.Key()),
+			types.NewVar(token.NoPos, nil, newStructFieldsName[1], t.Elem()),
+		}
+
+		// Define the tags for each field if necessary
+		tags := []string{"", ""} // No tags in this example. TODO: Check when Tags is used
+
+		// Create the struct type
+		structType := types.NewStruct(newStructfields, tags)
+
+		// Create the named type
+		newStructName := fmt.Sprintf("%sMap", gqlFieldDef.GqlFieldName)
+		gqlFieldDef.GqlFieldType = newStructName
+		newStruct := types.NewNamed(types.NewTypeName(token.NoPos, nil, newStructName, nil), structType, nil)
+
+		var newStructDiscManual load.StructDiscovered
+		newStructDiscManual.Name = newStruct.Obj()
+		newStructDiscManual.Obj, _ = newStruct.Underlying().(*types.Struct)
+		nestStructTypeDef, err := BuildGqlgenType(newStructDiscManual)
+		if err != nil {
+			return err
+		}
+		gqlFieldDef.NestedCustomType = append(gqlFieldDef.NestedCustomType, nestStructTypeDef)
+		return nil
 	case *types.Interface:
-		// Need to define a Scalar that must be defined by the requester
+		gqlFieldDef.GqlFieldType = t.String()
+		gqlFieldDef.IsScalar = true
+		return nil
 	case *types.Named:
-		return "", nestedStructErr
+		gqlFieldDef.GqlFieldType = t.Obj().Id()
+		return nil
 	default:
-		return "", invalidTypeErr
+		return fmt.Errorf("%s: %v", invalidTypeErr, t.String())
 	}
-	return "", invalidTypeErr
 }
 
 func ConvertBaseType(goBasicType *types.Basic) (string, error) {
@@ -91,5 +138,34 @@ func ConvertBaseType(goBasicType *types.Basic) (string, error) {
 	if mapBasicTypeToGqlType[goBasicType.Info()] != "" {
 		return mapBasicTypeToGqlType[goBasicType.Info()], nil
 	}
-	return "", fmt.Errorf("unsupported basic type: %s", goBasicType.String())
+	return "", fmt.Errorf("%v: %s", invalidTypeErr, goBasicType.String())
+}
+
+func GqlTypePrettyPrint(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse string) (string, error) {
+	var gqlType bytes.Buffer
+
+	// Write the Scalar on top of the string
+	for _, gqlTypeDef := range gqlTypeDefs {
+		for _, field := range gqlTypeDef.GqlFields {
+			if field.IsScalar {
+				gqlType.WriteString(fmt.Sprintf("scalar %s\n", field.GqlFieldType))
+			}
+		}
+	}
+
+	// Write the Type Definition
+	for _, gqlTypeDef := range gqlTypeDefs {
+		gqlType.WriteString(fmt.Sprintf("type %s {\n", gqlTypeDef.GqlTypeName))
+		for _, field := range gqlTypeDef.GqlFields {
+			if useTags {
+				// Need to factor in here to make use of TagsToUse and err if GqlFieldTags is not found
+				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldTags, field.GqlFieldType))
+			} else {
+				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldName, field.GqlFieldType))
+			}
+		}
+		gqlType.WriteString("}\n")
+	}
+
+	return gqlType.String(), nil
 }
