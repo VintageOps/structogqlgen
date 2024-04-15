@@ -30,30 +30,46 @@ func Execute() {
 		},
 	}
 	app.Action = func(c *cli.Context) error {
-		slog.Info("Finding Structs in the provided File", "fileName", fNameContStruct)
-		structsFound, err := load.FindStructsInPkg(fNameContStruct)
-		if err != nil {
-			slog.Info("Error getting structs", "fileName", fNameContStruct)
-			return err
-		}
-		// For each struct we will build its graphQl Type
-		gqlGenTypes := make([]conversion.GqlTypeDefinition, len(structsFound))
-		for idx, structType := range structsFound {
-			// Build GraphQL type for structType
-			gqlGenTypes[idx], err = conversion.BuildGqlgenType(structType)
-			if err != nil {
-				return err
-			}
-		}
-		prettyPrint, err := conversion.GqlTypePrettyPrint(gqlGenTypes, false, "")
-		if err != nil {
-			return err
-		}
-		fmt.Println(prettyPrint)
-		return nil
+		return printStructsAsGraphqlTypes(fNameContStruct)
 	}
+
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func printStructsAsGraphqlTypes(fNameContStruct string) error {
+	slog.Info("Finding Structs in the provided File", "fileName", fNameContStruct)
+
+	structsFound, err := load.FindStructsInPkg(fNameContStruct)
+	if err != nil {
+		slog.Info("Error getting structs", "fileName", fNameContStruct)
+		return err
+	}
+
+	gqlGenTypes, err := buildTypeDefinitions(structsFound)
+	if err != nil {
+		return err
+	}
+
+	prettyPrint, err := conversion.GqlTypePrettyPrint(gqlGenTypes, false, "")
+	if err != nil {
+		return err
+	}
+	fmt.Println(prettyPrint)
+
+	return nil
+}
+
+func buildTypeDefinitions(structsFound []load.StructDiscovered) ([]conversion.GqlTypeDefinition, error) {
+	gqlGenTypes := make([]conversion.GqlTypeDefinition, len(structsFound))
+	for idx, structType := range structsFound {
+		var err error
+		gqlGenTypes[idx], err = conversion.BuildGqlgenType(structType)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return gqlGenTypes, nil
 }
