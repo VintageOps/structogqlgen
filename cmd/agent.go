@@ -73,6 +73,10 @@ func Execute() {
 	}
 }
 
+// printStructsAsGraphqlTypes prints the GraphQL type definitions corresponding to the structs found in the provided source file.
+// - load.FindStructsInPkg function to find all structs defined in the source file.
+// - buildTypeDefinitions function to build the GraphQL type definitions for each struct.
+// - conversion.GqlPrettyPrint function to pretty print the GraphQL type definitions and prints the result.
 func printStructsAsGraphqlTypes(opts *cmdOptions) error {
 	structsFound, err := load.FindStructsInPkg(opts.fNameContStruct)
 	if err != nil {
@@ -92,6 +96,7 @@ func printStructsAsGraphqlTypes(opts *cmdOptions) error {
 	return nil
 }
 
+// buildTypeDefinitions builds the GraphQL type definitions for each struct in the provided slice.
 func buildTypeDefinitions(structsFound []load.StructDiscovered) ([]conversion.GqlTypeDefinition, error) {
 	gqlGenTypes := make([]conversion.GqlTypeDefinition, len(structsFound))
 	for idx, structType := range structsFound {
