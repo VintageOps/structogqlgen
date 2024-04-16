@@ -13,6 +13,7 @@ type GqlTypeDefinition struct {
 	GqlFields   []GqlFieldsDefinition // GqlFields is a slice of GqlFieldsDefinition, which represents the fields of a GraphQL type.
 }
 
+// GqlFieldsDefinition represents the definition of a GraphQL field.
 type GqlFieldsDefinition struct {
 	GqlFieldName     string              // GqlFieldName represents the name of a graphQL field
 	GqlFieldType     string              // GqlFieldType is a string representing the type of GraphQL field
@@ -21,11 +22,14 @@ type GqlFieldsDefinition struct {
 	NestedCustomType []GqlTypeDefinition // NestedCustomType represents any custom types that might be needed to be defined for this type.
 }
 
+// gqlTypeIsCustScalar represents indicates whether a graphql type must be represented as a custom scalar type or not.
 type gqlTypeIsCustScalar struct {
 	gqlType        string
 	isCustomScalar bool
 }
 
+// MapBasicKindToGqlType maps Go basic types to corresponding GraphQL types and indicates if that types need a custom scalar.
+// Mirrors: https://pkg.go.dev/go/types#BasicKind
 var MapBasicKindToGqlType = map[types.BasicKind]gqlTypeIsCustScalar{
 	types.Bool:           {gqlType: "Boolean"},
 	types.Int:            {gqlType: "Int"},
@@ -65,7 +69,9 @@ const (
 	invalidTypeErr = ConvertCustomError("invalid type")
 )
 
-// BuildGqlgenType builds a gqlgen Type using a struct definition
+// BuildGqlgenType builds a GqlTypeDefinition for a given struct definition.
+// It converts the struct fields into GqlFieldsDefinition, populating the field name and tags.
+// It also determines the field type by invoking ConvertType and handles any custom types or scalars.
 func BuildGqlgenType(structDef load.StructDiscovered) (GqlTypeDefinition, error) {
 
 	var gqlTypeDef GqlTypeDefinition
@@ -87,6 +93,8 @@ func BuildGqlgenType(structDef load.StructDiscovered) (GqlTypeDefinition, error)
 	return gqlTypeDef, nil
 }
 
+// ConvertType converts a Go type into a GqlFieldsDefinition by performing type-specific conversions.
+// It handles basic types, slices, pointers, maps, named types, and interfaces. .
 func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 	switch t := goType.(type) {
 	case *types.Basic:
@@ -106,6 +114,7 @@ func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 	}
 }
 
+// convertBasicType converts a Go basic type into a GqlFieldsDefinition by mapping it to a GraphQL type.
 func convertBasicType(t *types.Basic, gqlFieldDef *GqlFieldsDefinition) error {
 
 	if t.Kind() == types.Invalid {
@@ -121,6 +130,7 @@ func convertBasicType(t *types.Basic, gqlFieldDef *GqlFieldsDefinition) error {
 	return fmt.Errorf("%v: %s", invalidTypeErr, t.String())
 }
 
+// convertSliceType converts a Go type representing a slice into a GqlFieldsDefinition.
 func convertSliceType(t *types.Slice, gqlFieldDef *GqlFieldsDefinition) error {
 	var sliceTypeSql GqlFieldsDefinition
 	err := ConvertType(t.Elem(), &sliceTypeSql)
@@ -131,6 +141,7 @@ func convertSliceType(t *types.Slice, gqlFieldDef *GqlFieldsDefinition) error {
 	return nil
 }
 
+// convertPointerType converts a pointer type into a GqlFieldsDefinition.
 func convertPointerType(t *types.Pointer, gqlFieldDef *GqlFieldsDefinition) error {
 	var pointerTypeSql GqlFieldsDefinition
 	err := ConvertType(t.Elem(), &pointerTypeSql)
@@ -141,6 +152,7 @@ func convertPointerType(t *types.Pointer, gqlFieldDef *GqlFieldsDefinition) erro
 	return nil
 }
 
+// convertMapType converts a Go map type into a GqlFieldsDefinition representing a struct.
 func convertMapType(t *types.Map, gqlFieldDef *GqlFieldsDefinition) error {
 	newStructFieldsName := []string{"key", "values"}
 	newStructfields := []*types.Var{
@@ -163,6 +175,7 @@ func convertMapType(t *types.Map, gqlFieldDef *GqlFieldsDefinition) error {
 	return nil
 }
 
+// convertNamedType converts a named type into a GqlFieldsDefinition.
 func convertNamedType(t *types.Named, gqlFieldDef *GqlFieldsDefinition) error {
 	if _, ok := t.Underlying().(*types.Struct); ok {
 		gqlFieldDef.GqlFieldType = t.Obj().Id()
@@ -174,6 +187,7 @@ func convertNamedType(t *types.Named, gqlFieldDef *GqlFieldsDefinition) error {
 	return nil
 }
 
+// convertInterfaceType converts a *types.Interface into a GqlFieldsDefinition.
 func convertInterfaceType(t *types.Interface, gqlFieldDef *GqlFieldsDefinition) error {
 	if t.Empty() {
 		// Empty Interface

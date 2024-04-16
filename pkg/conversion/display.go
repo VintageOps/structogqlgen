@@ -6,17 +6,23 @@ import (
 	"github.com/fatih/structtag"
 )
 
+// PrettyPrintOptions represents the options for pretty-printing. It contains the following fields:
+// - UseJsonTags: a bool indicating whether to use JSON tags
+// - UseCustomTags: a string indicating the custom tags to use
+// - RequireTags: a SpecTagRequire struct that specifies required tags
 type PrettyPrintOptions struct {
 	UseJsonTags   bool
 	UseCustomTags string
-	RequireTags   specTagRequire
+	RequireTags   SpecTagRequire
 }
 
-type specTagRequire struct {
+// SpecTagRequire defines the structure for specifying required tags.
+type SpecTagRequire struct {
 	Key string
 	Val string
 }
 
+// tagToUse returns the tag that should be used for field definitions.
 func (opts *PrettyPrintOptions) tagToUse() string {
 	if opts.UseCustomTags != "" {
 		return opts.UseCustomTags
@@ -27,6 +33,7 @@ func (opts *PrettyPrintOptions) tagToUse() string {
 	return ""
 }
 
+// GqlPrettyPrint takes a slice of GqlTypeDefinition and PrettyPrintOptions and returns a string representation of the GraphQL type definitions.
 func GqlPrettyPrint(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptions) (string, error) {
 	var gqlType bytes.Buffer
 
@@ -46,6 +53,8 @@ func GqlPrettyPrint(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptions) (
 	return gqlType.String(), nil
 }
 
+// gqlPrettyPrintScalar takes a slice of GqlTypeDefinition and a map of setScalar.
+// It returns a string representation of the GraphQL scalar type definitions.
 func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition, setScalar map[string]bool) string {
 	var gqlScalarType bytes.Buffer
 
@@ -71,6 +80,7 @@ func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition, setScalar map[string]
 	return gqlScalarType.String()
 }
 
+// gqlPrettyPrintTypes takes a slice of GqlTypeDefinition and PrettyPrintOptions and returns a string representation of the GraphQL type definitions.
 func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptions) (string, error) {
 	var gqlType bytes.Buffer
 	anyTagToUse := opts.tagToUse()
@@ -101,7 +111,9 @@ func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptio
 	return gqlType.String(), nil
 }
 
-func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, requiredTags *specTagRequire) (string, error) {
+// gqlCreateFieldDefinition takes a GqlFieldsDefinition, a tag string, and a SpecTagRequire
+// and returns a string representation of the GraphQL field definition.
+func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, requiredTags *SpecTagRequire) (string, error) {
 	fieldName := field.GqlFieldName
 	requiredFieldmark := ""
 
@@ -123,6 +135,7 @@ func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, requiredTag
 	return fmt.Sprintf("  %s: %s%s\n", fieldName, field.GqlFieldType, requiredFieldmark), nil
 }
 
+// parseFieldTags takes a GqlFieldsDefinition and returns the parsed struct tags using structtag.Parse.
 func parseFieldTags(field GqlFieldsDefinition) (tags *structtag.Tags, err error) {
 	tags, err = structtag.Parse(field.GqlFieldTags)
 	if err != nil {
@@ -131,6 +144,7 @@ func parseFieldTags(field GqlFieldsDefinition) (tags *structtag.Tags, err error)
 	return tags, nil
 }
 
+// updateFieldName update the field name to output based on the provided tag to use
 func updateFieldName(fieldName string, tags *structtag.Tags, tag string) (string, error) {
 	if tag != "" {
 		specifiedTag, err := tags.Get(tag)
@@ -145,7 +159,8 @@ func updateFieldName(fieldName string, tags *structtag.Tags, tag string) (string
 	return fieldName, nil
 }
 
-func updateRequiredFieldMark(tags *structtag.Tags, requiredTags *specTagRequire, requiredFieldmark string) (string, error) {
+// updateRequiredFieldMark appends the fields "!" if the field has a tag that was marked as required
+func updateRequiredFieldMark(tags *structtag.Tags, requiredTags *SpecTagRequire, requiredFieldmark string) (string, error) {
 	if requiredTags.Key != "" && requiredTags.Val != "" {
 		tagValue, err := tags.Get(requiredTags.Key)
 		if err != nil {

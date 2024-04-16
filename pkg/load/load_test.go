@@ -13,7 +13,7 @@ func TestFindStructsInPkg(t *testing.T) {
 	}{
 		{"valid.go", "", 1},
 		{"empty.go", "no structs found", 0},
-		{"invalid.go", "failed to parsed the file, error was: invalid input", 0},
+		{"invalid.go", "failed to parsed the file, error was: invalid.go:1:1: expected 'package', found invalid", 0},
 	}
 
 	for _, testcase := range tests {
