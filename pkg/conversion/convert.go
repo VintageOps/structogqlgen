@@ -175,7 +175,12 @@ func convertNamedType(t *types.Named, gqlFieldDef *GqlFieldsDefinition) error {
 }
 
 func convertInterfaceType(t *types.Interface, gqlFieldDef *GqlFieldsDefinition) error {
-	gqlFieldDef.GqlFieldType = t.String()
+	if t.Empty() {
+		// Empty Interface
+		gqlFieldDef.GqlFieldType = "interfaceEmpty"
+	} else {
+		gqlFieldDef.GqlFieldType = fmt.Sprintf("interface%s", gqlFieldDef.GqlFieldName)
+	}
 	gqlFieldDef.IsCustomScalar = true
 	return nil
 }

@@ -3,17 +3,28 @@ package conversion
 import (
 	"bytes"
 	"fmt"
+	"github.com/fatih/structtag"
 )
 
 type PrettyPrintOptions struct {
-	UseTags     bool
-	TagsToUse   string
-	RequireTags specTagRequire
+	UseJsonTags   bool
+	UseCustomTags string
+	RequireTags   specTagRequire
 }
 
 type specTagRequire struct {
 	Key string
 	Val string
+}
+
+func (opts *PrettyPrintOptions) tagToUse() string {
+	if opts.UseCustomTags != "" {
+		return opts.UseCustomTags
+	}
+	if opts.UseJsonTags {
+		return "json"
+	}
+	return ""
 }
 
 func GqlPrettyPrint(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptions) (string, error) {
@@ -62,14 +73,27 @@ func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition, setScalar map[string]
 
 func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptions) (string, error) {
 	var gqlType bytes.Buffer
+	anyTagToUse := opts.tagToUse()
+
 	for _, gqlTypeDef := range gqlTypeDefs {
 		var nestedCustomToWrite string
 		var err error
 		gqlType.WriteString(fmt.Sprintf("type %s {\n", gqlTypeDef.GqlTypeName))
 		for _, field := range gqlTypeDef.GqlFields {
-			if opts.UseTags {
-				// Need to factor in here to make use of TagsToUse and err if GqlFieldTags is not found
-				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldTags, field.GqlFieldType))
+			if anyTagToUse != "" {
+				tags, err := structtag.Parse(field.GqlFieldTags)
+				if err != nil {
+					return "", err
+				}
+				specifiedTag, err := tags.Get(anyTagToUse)
+				if err != nil && fmt.Sprintf("%v", err) != "tag does not exist" {
+					return "", err
+				}
+				if fmt.Sprintf("%v", err) == "tag does not exist" {
+					gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldName, field.GqlFieldType))
+				} else {
+					gqlType.WriteString(fmt.Sprintf("  %s: %s\n", specifiedTag.Name, field.GqlFieldType))
+				}
 			} else {
 				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldName, field.GqlFieldType))
 			}

@@ -28,7 +28,7 @@ type User struct {
 
 // Article represents a piece of written content.
 type Article struct {
-	ID                 int                                   `json:"id"`
+	ID                 int                                   `json:"id" validate:"required"`
 	Title              string                                `json:"title"`
 	Content            string                                `json:"content"`
 	Author             User                                  `json:"author"`

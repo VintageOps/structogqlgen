@@ -31,26 +31,26 @@ func Execute() {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "src",
-				Usage:       "Path to the source File containing the structs to import",
+				Usage:       "`SRC_PATH` is the required path to the source file containing the structs to import",
 				Destination: &opts.fNameContStruct,
 				Required:    true,
 				Aliases:     []string{"s"},
 			},
 			&cli.BoolFlag{
-				Name:        "use-tags",
-				Usage:       "Use Tags as field name, when tag is available. If selected without specifying the tags to use, then json tag will be used",
-				Destination: &opts.printOpts.UseTags,
-				Aliases:     []string{"u"},
+				Name:        "use-json-tags",
+				Usage:       "Use JSON Tag as field name when available. If this is selected and a field has no Json tag, then the field name will be used.",
+				Destination: &opts.printOpts.UseJsonTags,
+				Aliases:     []string{"j"},
 			},
 			&cli.StringFlag{
-				Name:        "tags",
-				Usage:       "The tags to use as field name. Specifying this implies that --use-tags is selected.",
-				Destination: &opts.printOpts.TagsToUse,
-				Aliases:     []string{"t"},
+				Name:        "use-custom-tags",
+				Usage:       "Specify a custom tag to use as field name. Specifying this takes precedence over JSON tags. If specifed and a field does not have this tag, the field name will be used",
+				Destination: &opts.printOpts.UseCustomTags,
+				Aliases:     []string{"c"},
 			},
 			&cli.StringFlag{
 				Name:    "required-tags",
-				Usage:   "If there is a tag that make a field required, specified that tag using the format key=value. e.g. validate=required",
+				Usage:   "If there is a tag that make a field required, specified that tag using the format `key=value`. e.g. validate=required",
 				Aliases: []string{"r"},
 				Action: func(context *cli.Context, required string) error {
 					parts := strings.SplitN(required, "=", 2)
