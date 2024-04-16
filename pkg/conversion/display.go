@@ -77,26 +77,15 @@ func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptio
 
 	for _, gqlTypeDef := range gqlTypeDefs {
 		var nestedCustomToWrite string
-		var err error
 		gqlType.WriteString(fmt.Sprintf("type %s {\n", gqlTypeDef.GqlTypeName))
+
 		for _, field := range gqlTypeDef.GqlFields {
-			if anyTagToUse != "" {
-				tags, err := structtag.Parse(field.GqlFieldTags)
-				if err != nil {
-					return "", err
-				}
-				specifiedTag, err := tags.Get(anyTagToUse)
-				if err != nil && fmt.Sprintf("%v", err) != "tag does not exist" {
-					return "", err
-				}
-				if fmt.Sprintf("%v", err) == "tag does not exist" {
-					gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldName, field.GqlFieldType))
-				} else {
-					gqlType.WriteString(fmt.Sprintf("  %s: %s\n", specifiedTag.Name, field.GqlFieldType))
-				}
-			} else {
-				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldName, field.GqlFieldType))
+			fieldDef, err := gqlCreateFieldDefinition(field, anyTagToUse, &opts.RequireTags)
+			if err != nil {
+				return "", err
 			}
+			gqlType.WriteString(fieldDef)
+
 			if len(field.NestedCustomType) != 0 {
 				nestedCustomToWrite, err = gqlPrettyPrintTypes(field.NestedCustomType, opts)
 				if err != nil {
@@ -110,4 +99,42 @@ func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptio
 		}
 	}
 	return gqlType.String(), nil
+}
+
+func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, requiredTags *specTagRequire) (string, error) {
+	fieldName := field.GqlFieldName
+	requiredFieldmark := ""
+
+	tags, err := structtag.Parse(field.GqlFieldTags)
+	if err != nil {
+		return "", err
+	}
+
+	if tag != "" {
+		specifiedTag, err := tags.Get(tag)
+		if err != nil {
+			if fmt.Sprintf("%v", err) != "tag does not exist" {
+				return "", err
+			}
+		} else {
+			fieldName = specifiedTag.Name
+		}
+	}
+
+	if requiredTags.Key != "" && requiredTags.Val != "" {
+		if requiredTags.Key != "" && requiredTags.Val != "" {
+			tagValue, err := tags.Get(requiredTags.Key)
+			if err != nil {
+				if fmt.Sprintf("%v", err) != "tag does not exist" {
+					return "", err
+				}
+			}
+			if fmt.Sprintf("%v", err) != "tag does not exist" {
+				if tagValue.Name == requiredTags.Val {
+					requiredFieldmark = "!"
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("  %s: %s%s\n", fieldName, field.GqlFieldType, requiredFieldmark), nil
 }
