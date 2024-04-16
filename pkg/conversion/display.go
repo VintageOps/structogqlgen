@@ -5,7 +5,18 @@ import (
 	"fmt"
 )
 
-func GqlPrettyPrint(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse string) (string, error) {
+type PrettyPrintOptions struct {
+	UseTags     bool
+	TagsToUse   string
+	RequireTags specTagRequire
+}
+
+type specTagRequire struct {
+	Key string
+	Val string
+}
+
+func GqlPrettyPrint(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptions) (string, error) {
 	var gqlType bytes.Buffer
 
 	// Write the Scalar on top of the string
@@ -16,7 +27,7 @@ func GqlPrettyPrint(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse str
 	gqlType.WriteString("\n")
 
 	// Write the Type Definition
-	gqlTypeDefinition, err := gqlPrettyPrintTypes(gqlTypeDefs, useTags, tagsToUse)
+	gqlTypeDefinition, err := gqlPrettyPrintTypes(gqlTypeDefs, opts)
 	if err != nil {
 		return "", err
 	}
@@ -36,7 +47,6 @@ func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition, setScalar map[string]
 		for _, field := range gqlTypeDef.GqlFields {
 			if field.IsCustomScalar {
 				setScalar[field.GqlFieldType] = true
-				fmt.Println(setScalar)
 			}
 			if len(field.NestedCustomType) != 0 {
 				_ = gqlPrettyPrintScalar(field.NestedCustomType, setScalar)
@@ -50,21 +60,21 @@ func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition, setScalar map[string]
 	return gqlScalarType.String()
 }
 
-func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse string) (string, error) {
+func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptions) (string, error) {
 	var gqlType bytes.Buffer
 	for _, gqlTypeDef := range gqlTypeDefs {
 		var nestedCustomToWrite string
 		var err error
 		gqlType.WriteString(fmt.Sprintf("type %s {\n", gqlTypeDef.GqlTypeName))
 		for _, field := range gqlTypeDef.GqlFields {
-			if useTags {
+			if opts.UseTags {
 				// Need to factor in here to make use of TagsToUse and err if GqlFieldTags is not found
 				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldTags, field.GqlFieldType))
 			} else {
 				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldName, field.GqlFieldType))
 			}
 			if len(field.NestedCustomType) != 0 {
-				nestedCustomToWrite, err = gqlPrettyPrintTypes(field.NestedCustomType, useTags, tagsToUse)
+				nestedCustomToWrite, err = gqlPrettyPrintTypes(field.NestedCustomType, opts)
 				if err != nil {
 					return "", err
 				}
