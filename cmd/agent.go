@@ -6,7 +6,6 @@ import (
 	"github.com/VintageOps/structogqlgen/pkg/load"
 	"github.com/urfave/cli/v2"
 	"log"
-	"log/slog"
 	"os"
 	"strings"
 )
@@ -75,11 +74,8 @@ func Execute() {
 }
 
 func printStructsAsGraphqlTypes(opts *cmdOptions) error {
-	slog.Info("Finding Structs in the provided File", "fileName", opts.fNameContStruct)
-
 	structsFound, err := load.FindStructsInPkg(opts.fNameContStruct)
 	if err != nil {
-		slog.Info("Error getting structs", "fileName", opts.fNameContStruct)
 		return err
 	}
 
@@ -93,7 +89,6 @@ func printStructsAsGraphqlTypes(opts *cmdOptions) error {
 		return err
 	}
 	fmt.Println(prettyPrint)
-
 	return nil
 }
 

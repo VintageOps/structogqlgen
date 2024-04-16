@@ -105,36 +105,57 @@ func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, requiredTag
 	fieldName := field.GqlFieldName
 	requiredFieldmark := ""
 
-	tags, err := structtag.Parse(field.GqlFieldTags)
+	tags, err := parseFieldTags(field)
 	if err != nil {
 		return "", err
 	}
 
+	fieldName, err = updateFieldName(fieldName, tags, tag)
+	if err != nil {
+		return "", err
+	}
+
+	requiredFieldmark, err = updateRequiredFieldMark(tags, requiredTags, requiredFieldmark)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("  %s: %s%s\n", fieldName, field.GqlFieldType, requiredFieldmark), nil
+}
+
+func parseFieldTags(field GqlFieldsDefinition) (tags *structtag.Tags, err error) {
+	tags, err = structtag.Parse(field.GqlFieldTags)
+	if err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+func updateFieldName(fieldName string, tags *structtag.Tags, tag string) (string, error) {
 	if tag != "" {
 		specifiedTag, err := tags.Get(tag)
 		if err != nil {
-			if fmt.Sprintf("%v", err) != "tag does not exist" {
+			if err.Error() != "tag does not exist" {
 				return "", err
 			}
 		} else {
 			fieldName = specifiedTag.Name
 		}
 	}
+	return fieldName, nil
+}
 
+func updateRequiredFieldMark(tags *structtag.Tags, requiredTags *specTagRequire, requiredFieldmark string) (string, error) {
 	if requiredTags.Key != "" && requiredTags.Val != "" {
-		if requiredTags.Key != "" && requiredTags.Val != "" {
-			tagValue, err := tags.Get(requiredTags.Key)
-			if err != nil {
-				if fmt.Sprintf("%v", err) != "tag does not exist" {
-					return "", err
-				}
-			}
+		tagValue, err := tags.Get(requiredTags.Key)
+		if err != nil {
 			if fmt.Sprintf("%v", err) != "tag does not exist" {
-				if tagValue.Name == requiredTags.Val {
-					requiredFieldmark = "!"
-				}
+				return "", err
 			}
 		}
+		if err == nil && tagValue.Name == requiredTags.Val {
+			requiredFieldmark = "!"
+		}
 	}
-	return fmt.Sprintf("  %s: %s%s\n", fieldName, field.GqlFieldType, requiredFieldmark), nil
+	return requiredFieldmark, nil
 }
