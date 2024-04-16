@@ -39,6 +39,7 @@ type Article struct {
 	Errors      error                                 `json:"error"`
 	Anything    interface{}                           `json:"anything"`
 	DoSomething map[string]interface{ DoSomething() } `json:"do_something"`
+	RandomInt   uint64                                `json:"random_int"`
 	Metadata                                          // Embedding Metadata struct
 }
 

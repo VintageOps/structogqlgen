@@ -53,7 +53,7 @@ func printStructsAsGraphqlTypes(fNameContStruct string) error {
 		return err
 	}
 
-	prettyPrint, err := conversion.GqlTypePrettyPrint(gqlGenTypes, false, "")
+	prettyPrint, err := conversion.GqlPrettyPrint(gqlGenTypes, false, "")
 	if err != nil {
 		return err
 	}

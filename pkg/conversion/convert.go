@@ -1,7 +1,6 @@
 package conversion
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/VintageOps/structogqlgen/pkg/load"
 	"go/token"
@@ -18,8 +17,41 @@ type GqlFieldsDefinition struct {
 	GqlFieldName     string              // GqlFieldName represents the name of a graphQL field
 	GqlFieldType     string              // GqlFieldType is a string representing the type of GraphQL field
 	GqlFieldTags     string              // GqlFieldTags represents the tags of a GraphQL field
-	IsScalar         bool                // True if this field need to define a Scalar which will be type Name
+	IsCustomScalar   bool                // True if this field need to define a Scalar which will be type Name
 	NestedCustomType []GqlTypeDefinition // NestedCustomType represents any custom types that might be needed to be defined for this type.
+}
+
+type gqlTypeIsCustScalar struct {
+	gqlType        string
+	isCustomScalar bool
+}
+
+var MapBasicKindToGqlType = map[types.BasicKind]gqlTypeIsCustScalar{
+	types.Bool:           {gqlType: "Boolean"},
+	types.Int:            {gqlType: "Int"},
+	types.Int8:           {gqlType: "Int"},
+	types.Int16:          {gqlType: "Int"},
+	types.Int32:          {gqlType: "Int"},
+	types.Int64:          {gqlType: "BigInt", isCustomScalar: true}, // Graphql Int represents a signed 32‐bit integer
+	types.Uint:           {gqlType: "Int"},
+	types.Uint8:          {gqlType: "Int"},
+	types.Uint16:         {gqlType: "Int"},
+	types.Uint32:         {gqlType: "Int"},
+	types.Uint64:         {gqlType: "BigInt", isCustomScalar: true}, // Graphql Int represents a signed 32‐bit integer
+	types.Uintptr:        {gqlType: "BigInt", isCustomScalar: true}, // Graphql Int represents a signed 32‐bit integer
+	types.Float32:        {gqlType: "Float"},
+	types.Float64:        {gqlType: "Float"},
+	types.Complex64:      {gqlType: "ComplexNumber", isCustomScalar: true}, // Custom scalar
+	types.Complex128:     {gqlType: "ComplexNumber", isCustomScalar: true}, // Custom scalar
+	types.String:         {gqlType: "String"},
+	types.UnsafePointer:  {gqlType: "UnsafePointer", isCustomScalar: true}, // Custom Scalar
+	types.UntypedBool:    {gqlType: "Boolean"},
+	types.UntypedInt:     {gqlType: "BigInt", isCustomScalar: true}, // Custom scalar or String
+	types.UntypedRune:    {gqlType: "Int"},
+	types.UntypedFloat:   {gqlType: "Float"},
+	types.UntypedComplex: {gqlType: "ComplexNumber", isCustomScalar: true}, // Custom scalar
+	types.UntypedString:  {gqlType: "String"},
+	types.UntypedNil:     {gqlType: "UntypedNil", isCustomScalar: true}, // Special handling may be needed
 }
 
 // ConvertCustomError represents a custom error type that can be used in Go programs.
@@ -75,12 +107,18 @@ func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 }
 
 func convertBasicType(t *types.Basic, gqlFieldDef *GqlFieldsDefinition) error {
-	baseType, err := ConvertBaseType(t)
-	if err != nil {
-		return err
+
+	if t.Kind() == types.Invalid {
+		return fmt.Errorf("%v: %s", invalidTypeErr, t.String())
 	}
-	gqlFieldDef.GqlFieldType = baseType
-	return nil
+
+	if val, ok := MapBasicKindToGqlType[t.Kind()]; ok {
+		gqlFieldDef.GqlFieldType = val.gqlType
+		gqlFieldDef.IsCustomScalar = val.isCustomScalar
+		return nil
+	}
+
+	return fmt.Errorf("%v: %s", invalidTypeErr, t.String())
 }
 
 func convertSliceType(t *types.Slice, gqlFieldDef *GqlFieldsDefinition) error {
@@ -131,97 +169,13 @@ func convertNamedType(t *types.Named, gqlFieldDef *GqlFieldsDefinition) error {
 		return nil
 	} else {
 		gqlFieldDef.GqlFieldType = t.Obj().Name()
-		gqlFieldDef.IsScalar = true
+		gqlFieldDef.IsCustomScalar = true
 	}
 	return nil
 }
 
 func convertInterfaceType(t *types.Interface, gqlFieldDef *GqlFieldsDefinition) error {
 	gqlFieldDef.GqlFieldType = t.String()
-	gqlFieldDef.IsScalar = true
+	gqlFieldDef.IsCustomScalar = true
 	return nil
-}
-
-func ConvertBaseType(goBasicType *types.Basic) (string, error) {
-	// Mirrors https://pkg.go.dev/go/types#BasicInfo
-	mapBasicTypeToGqlType := map[types.BasicInfo]string{
-		types.IsBoolean:  "Boolean",
-		types.IsInteger:  "Int",
-		types.IsUnsigned: "Int",
-		types.IsFloat:    "Float",
-		// types.IsComplex:  "Float", Not supported for now
-		types.IsString: "String",
-		// types.IsUntyped: "Unsupported", Not supported for now
-	}
-
-	if mapBasicTypeToGqlType[goBasicType.Info()] != "" {
-		return mapBasicTypeToGqlType[goBasicType.Info()], nil
-	}
-	return "", fmt.Errorf("%v: %s", invalidTypeErr, goBasicType.String())
-}
-
-func GqlTypePrettyPrint(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse string) (string, error) {
-	var gqlType bytes.Buffer
-
-	// Write the Scalar on top of the string
-	scalarOutput := gqlPrettyPrintScalar(gqlTypeDefs)
-	if scalarOutput != "" {
-		gqlType.WriteString(scalarOutput)
-	}
-	gqlType.WriteString("\n")
-
-	// Write the Type Definition
-	gqlTypeDefinition, err := gqlPrettyPrintTypes(gqlTypeDefs, useTags, tagsToUse)
-	if err != nil {
-		return "", err
-	}
-	gqlType.WriteString(gqlTypeDefinition)
-	return gqlType.String(), nil
-}
-
-func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition) string {
-	var gqlScalarType bytes.Buffer
-
-	for _, gqlTypeDef := range gqlTypeDefs {
-		for _, field := range gqlTypeDef.GqlFields {
-			if field.IsScalar {
-				gqlScalarType.WriteString(fmt.Sprintf("scalar %s\n", field.GqlFieldType))
-			}
-			if len(field.NestedCustomType) != 0 {
-				NestedScalar := gqlPrettyPrintScalar(field.NestedCustomType)
-				if NestedScalar != "" {
-					gqlScalarType.WriteString(NestedScalar)
-				}
-			}
-		}
-	}
-	return gqlScalarType.String()
-}
-
-func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse string) (string, error) {
-	var gqlType bytes.Buffer
-	for _, gqlTypeDef := range gqlTypeDefs {
-		var nestedCustomToWrite string
-		var err error
-		gqlType.WriteString(fmt.Sprintf("type %s {\n", gqlTypeDef.GqlTypeName))
-		for _, field := range gqlTypeDef.GqlFields {
-			if useTags {
-				// Need to factor in here to make use of TagsToUse and err if GqlFieldTags is not found
-				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldTags, field.GqlFieldType))
-			} else {
-				gqlType.WriteString(fmt.Sprintf("  %s: %s\n", field.GqlFieldName, field.GqlFieldType))
-			}
-			if len(field.NestedCustomType) != 0 {
-				nestedCustomToWrite, err = gqlPrettyPrintTypes(field.NestedCustomType, useTags, tagsToUse)
-				if err != nil {
-					return "", err
-				}
-			}
-		}
-		gqlType.WriteString("}\n\n")
-		if nestedCustomToWrite != "" {
-			gqlType.WriteString(nestedCustomToWrite)
-		}
-	}
-	return gqlType.String(), nil
 }
