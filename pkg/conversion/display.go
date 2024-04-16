@@ -9,7 +9,7 @@ func GqlPrettyPrint(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse str
 	var gqlType bytes.Buffer
 
 	// Write the Scalar on top of the string
-	scalarOutput := gqlPrettyPrintScalar(gqlTypeDefs)
+	scalarOutput := gqlPrettyPrintScalar(gqlTypeDefs, nil)
 	if scalarOutput != "" {
 		gqlType.WriteString(scalarOutput)
 	}
@@ -24,21 +24,28 @@ func GqlPrettyPrint(gqlTypeDefs []GqlTypeDefinition, useTags bool, tagsToUse str
 	return gqlType.String(), nil
 }
 
-func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition) string {
+func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition, setScalar map[string]bool) string {
 	var gqlScalarType bytes.Buffer
+
+	// Dealing with recursive Case
+	if setScalar == nil {
+		setScalar = make(map[string]bool)
+	}
 
 	for _, gqlTypeDef := range gqlTypeDefs {
 		for _, field := range gqlTypeDef.GqlFields {
 			if field.IsCustomScalar {
-				gqlScalarType.WriteString(fmt.Sprintf("scalar %s\n", field.GqlFieldType))
+				setScalar[field.GqlFieldType] = true
+				fmt.Println(setScalar)
 			}
 			if len(field.NestedCustomType) != 0 {
-				NestedScalar := gqlPrettyPrintScalar(field.NestedCustomType)
-				if NestedScalar != "" {
-					gqlScalarType.WriteString(NestedScalar)
-				}
+				_ = gqlPrettyPrintScalar(field.NestedCustomType, setScalar)
 			}
 		}
+	}
+
+	for scalar := range setScalar {
+		gqlScalarType.WriteString(fmt.Sprintf("scalar %s\n", scalar))
 	}
 	return gqlScalarType.String()
 }

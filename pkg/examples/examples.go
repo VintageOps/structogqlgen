@@ -28,19 +28,20 @@ type User struct {
 
 // Article represents a piece of written content.
 type Article struct {
-	ID          int                                   `json:"id"`
-	Title       string                                `json:"title"`
-	Content     string                                `json:"content"`
-	Author      User                                  `json:"author"`
-	Tags        []string                              `json:"tags"`
-	Comments    []Comment                             `json:"comments"`
-	PublishedAt time.Time                             `json:"published_at"`
-	Status      PublicationStatus                     `json:"status"`
-	Errors      error                                 `json:"error"`
-	Anything    interface{}                           `json:"anything"`
-	DoSomething map[string]interface{ DoSomething() } `json:"do_something"`
-	RandomInt   uint64                                `json:"random_int"`
-	Metadata                                          // Embedding Metadata struct
+	ID                 int                                   `json:"id"`
+	Title              string                                `json:"title"`
+	Content            string                                `json:"content"`
+	Author             User                                  `json:"author"`
+	Tags               []string                              `json:"tags"`
+	Comments           []Comment                             `json:"comments"`
+	PublishedAt        time.Time                             `json:"published_at"`
+	Status             PublicationStatus                     `json:"status"`
+	Errors             error                                 `json:"error"`
+	Anything           interface{}                           `json:"anything"`
+	DoSomething        map[string]interface{ DoSomething() } `json:"do_something"`
+	RandomInt          uint64                                `json:"random_int"`
+	AnotherRandomInt64 uint64                                `json:"another_random_int64"`
+	Metadata                                                 // Embedding Metadata struct
 }
 
 // Comment represents a user's comment on an article.
