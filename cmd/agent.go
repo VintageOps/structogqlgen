@@ -30,7 +30,7 @@ func Execute() {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "src",
-				Usage:       "`SRC_PATH` is the required path to the source file containing the structs to import",
+				Usage:       "`SRC_PATH` is the required path to the source file containing the structs to import (required)",
 				Destination: &opts.fNameContStruct,
 				Required:    true,
 				Aliases:     []string{"s"},
