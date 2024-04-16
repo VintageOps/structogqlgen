@@ -1,23 +1,26 @@
-package examples
+package examples_test
 
 import (
 	"fmt"
 	"time"
 )
 
+// Another Example Is just an example Struct
 type Another struct{}
 
+// DoSomething Examples prints a message indicating that 'Another' is doing something.
+// This method belongs to the 'Another' struct.
 func (a *Another) DoSomething() {
 	fmt.Println("Another doing something")
 }
 
-// Metadata provides common metadata fields for various entities.
+// Metadata Example provides common metadata fields for various entities.
 type Metadata struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// User defines a user in the system.
+// User Example defines a user in the system.
 type User struct {
 	ID       int    `json:"id"`
 	Username string `json:"username"`
@@ -26,7 +29,7 @@ type User struct {
 	Metadata        // Embedding Metadata struct
 }
 
-// Article represents a piece of written content.
+// Article Example represents a piece of written content.
 type Article struct {
 	ID                 int                                   `json:"id" validate:"required"`
 	Title              string                                `json:"title"`
@@ -44,7 +47,7 @@ type Article struct {
 	Metadata                                                 // Embedding Metadata struct
 }
 
-// Comment represents a user's comment on an article.
+// Comment Example represents a user's comment on an article.
 type Comment struct {
 	ID        int    `json:"id"`
 	ArticleID int    `json:"article_id"`
@@ -53,10 +56,10 @@ type Comment struct {
 	Metadata         // Embedding Metadata struct
 }
 
-// PublicationStatus is an enum representing the publication state of an article.
+// PublicationStatus Example is an enum representing the publication state of an article.
 type PublicationStatus string
 
-// CMSData is a struct embedding multiple other structs and showcasing a variety of types.
+// CMSData Example is a struct embedding multiple other structs and showcasing a variety of types.
 type CMSData struct {
 	Users           []User        `json:"users"`
 	Articles        []Article     `json:"articles"`
