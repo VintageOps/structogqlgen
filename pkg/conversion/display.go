@@ -11,9 +11,10 @@ import (
 // - UseCustomTags: a string indicating the custom tags to use
 // - RequireTags: a SpecTagRequire struct that specifies required tags
 type PrettyPrintOptions struct {
-	UseJsonTags   bool
-	UseCustomTags string
-	RequireTags   SpecTagRequire
+	UseJsonTags      bool
+	UseCustomTags    string
+	TagFieldToIgnore *string
+	RequireTags      SpecTagRequire
 }
 
 // SpecTagRequire defines the structure for specifying required tags.
@@ -29,6 +30,19 @@ func (opts *PrettyPrintOptions) tagToUse() string {
 	}
 	if opts.UseJsonTags {
 		return "json"
+	}
+	return ""
+}
+
+// tagFieldsValueToIgnore returns the tag Field value that should be ignored
+func (opts *PrettyPrintOptions) tagFieldsValueToIgnore() string {
+	// If a tag was specified, then use it
+	if opts.TagFieldToIgnore != nil {
+		return *opts.TagFieldToIgnore
+	}
+	// If no tags was specified, but JSON is used then use the JSON "-"
+	if opts.UseJsonTags {
+		return "-"
 	}
 	return ""
 }
@@ -84,13 +98,14 @@ func gqlPrettyPrintScalar(gqlTypeDefs []GqlTypeDefinition, setScalar map[string]
 func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptions) (string, error) {
 	var gqlType bytes.Buffer
 	anyTagToUse := opts.tagToUse()
+	tagValueToIgnore := opts.tagFieldsValueToIgnore()
 
 	for _, gqlTypeDef := range gqlTypeDefs {
 		var nestedCustomToWrite string
 		gqlType.WriteString(fmt.Sprintf("type %s {\n", gqlTypeDef.GqlTypeName))
 
 		for _, field := range gqlTypeDef.GqlFields {
-			fieldDef, err := gqlCreateFieldDefinition(field, anyTagToUse, &opts.RequireTags)
+			fieldDef, err := gqlCreateFieldDefinition(field, anyTagToUse, tagValueToIgnore, &opts.RequireTags)
 			if err != nil {
 				return "", err
 			}
@@ -113,7 +128,7 @@ func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptio
 
 // gqlCreateFieldDefinition takes a GqlFieldsDefinition, a tag string, and a SpecTagRequire
 // and returns a string representation of the GraphQL field definition.
-func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, requiredTags *SpecTagRequire) (string, error) {
+func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, tagValueToIgnore string, requiredTags *SpecTagRequire) (string, error) {
 	fieldName := field.GqlFieldName
 	requiredFieldmark := ""
 
@@ -125,6 +140,10 @@ func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, requiredTag
 	fieldName, err = updateFieldName(fieldName, tags, tag)
 	if err != nil {
 		return "", err
+	}
+
+	if fieldName == tagValueToIgnore {
+		return "", nil
 	}
 
 	requiredFieldmark, err = updateRequiredFieldMark(tags, requiredTags, requiredFieldmark)
