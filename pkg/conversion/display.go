@@ -129,6 +129,18 @@ func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptio
 // gqlCreateFieldDefinition takes a GqlFieldsDefinition, a tag string, and a SpecTagRequire
 // and returns a string representation of the GraphQL field definition.
 func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, tagValueToIgnore string, requiredTags *SpecTagRequire) (string, error) {
+	var thisFieldOutput string
+	var embeddedFieldOutput string
+	if field.GqlFieldIsEmbedded {
+		for _, embeddedField := range field.GqlGenFieldsEmbedded {
+			thisEmbeddedFieldOutput, err := gqlCreateFieldDefinition(embeddedField, tag, tagValueToIgnore, requiredTags)
+			if err != nil {
+				return "", err
+			}
+			embeddedFieldOutput += thisEmbeddedFieldOutput
+		}
+	}
+
 	fieldName := field.GqlFieldName
 	requiredFieldmark := ""
 
@@ -151,7 +163,13 @@ func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, tagValueToI
 		return "", err
 	}
 
-	return fmt.Sprintf("  %s: %s%s\n", fieldName, field.GqlFieldType, requiredFieldmark), nil
+	// Add this field only if it is not embedded
+	if !field.GqlFieldIsEmbedded {
+		thisFieldOutput = fmt.Sprintf("  %s: %s%s\n", fieldName, field.GqlFieldType, requiredFieldmark)
+	}
+	output := embeddedFieldOutput + thisFieldOutput
+
+	return output, nil
 }
 
 // parseFieldTags takes a GqlFieldsDefinition and returns the parsed struct tags using structtag.Parse.

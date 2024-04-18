@@ -15,12 +15,13 @@ type GqlTypeDefinition struct {
 
 // GqlFieldsDefinition represents the definition of a GraphQL field.
 type GqlFieldsDefinition struct {
-	GqlFieldName       string              // GqlFieldName represents the name of a graphQL field
-	GqlFieldType       string              // GqlFieldType is a string representing the type of GraphQL field
-	GqlFieldTags       string              // GqlFieldTags represents the tags of a GraphQL field
-	GqlFieldIsEmbedded bool                // GqlFieldIsEmbedded represents whether a GraphQL field is an embedded field.
-	IsCustomScalar     bool                // True if this field need to define a Scalar which will be type Name
-	NestedCustomType   []GqlTypeDefinition // NestedCustomType represents any custom types that might be needed to be defined for this type.
+	GqlFieldName         string                // GqlFieldName represents the name of a graphQL field
+	GqlFieldType         string                // GqlFieldType is a string representing the type of GraphQL field
+	GqlFieldTags         string                // GqlFieldTags represents the tags of a GraphQL field
+	GqlFieldIsEmbedded   bool                  // GqlFieldIsEmbedded represents whether a GraphQL field is an embedded field.
+	IsCustomScalar       bool                  // True if this field need to define a Scalar which will be type Name
+	NestedCustomType     []GqlTypeDefinition   // NestedCustomType represents any custom types that might be needed to be defined for this type.
+	GqlGenFieldsEmbedded []GqlFieldsDefinition // GqlGenFieldsEmbedded represents fields for Embedded Structs
 }
 
 // gqlTypeIsCustScalar represents indicates whether a graphql type must be represented as a custom scalar type or not.
@@ -190,7 +191,7 @@ func convertNamedType(t *types.Named, gqlFieldDef *GqlFieldsDefinition) error {
 			if err != nil {
 				return err
 			}
-			gqlFieldDef.NestedCustomType = append(gqlFieldDef.NestedCustomType, nestStructTypeDef)
+			gqlFieldDef.GqlGenFieldsEmbedded = nestStructTypeDef.GqlFields
 		}
 		return nil
 	} else {
