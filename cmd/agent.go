@@ -48,6 +48,16 @@ func Execute() {
 				Aliases:     []string{"c"},
 			},
 			&cli.StringFlag{
+				Name:    "tags-value-ignored",
+				Usage:   "Specify a tag value that signal to ignore Field with tag having this value. When using json tags with use-json-tags option, if this not specified, it is automatically set to '-'",
+				Aliases: []string{"i"},
+				Action: func(context *cli.Context, s string) error {
+					// workaround as Destination: opts.printOpts.TagFieldToIgnore does not set the provided value
+					opts.printOpts.TagFieldToIgnore = &s
+					return nil
+				},
+			},
+			&cli.StringFlag{
 				Name:    "required-tags",
 				Usage:   "If there is a tag that make a field required, specified that tag using the format `key=value`. e.g. validate=required",
 				Aliases: []string{"r"},

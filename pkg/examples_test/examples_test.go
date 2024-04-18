@@ -18,6 +18,7 @@ func (a *Another) DoSomething() {
 type Metadata struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	CachedAt  time.Time `json:"-"`
 }
 
 // User Example defines a user in the system.
