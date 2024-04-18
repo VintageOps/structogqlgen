@@ -126,30 +126,47 @@ func gqlPrettyPrintTypes(gqlTypeDefs []GqlTypeDefinition, opts *PrettyPrintOptio
 	return gqlType.String(), nil
 }
 
+// createEmbeddedFieldOutput takes a GqlFieldsDefinition, a tag string, a tagValueToIgnore string,
+// and a requiredTags pointer to SpecTagRequire, and returns a string representation of the
+// embedded fields' output.
+func createEmbeddedFieldOutput(field GqlFieldsDefinition, tag string, tagValueToIgnore string, requiredTags *SpecTagRequire) (string, error) {
+	var embeddedFieldOutput string
+	for _, embeddedField := range field.GqlGenFieldsEmbedded {
+		thisEmbeddedFieldOutput, err := gqlCreateFieldDefinition(embeddedField, tag, tagValueToIgnore, requiredTags)
+		if err != nil {
+			return "", err
+		}
+		embeddedFieldOutput += thisEmbeddedFieldOutput
+	}
+	return embeddedFieldOutput, nil
+}
+
+// createFieldOutput takes a GqlFieldsDefinition, a fieldName string, and a requiredFieldmark string
+// and returns a string representation of the GraphQL field output.
+func createFieldOutput(field GqlFieldsDefinition, fieldName string, requiredFieldmark string) string {
+	return fmt.Sprintf("  %s: %s%s\n", fieldName, field.GqlFieldType, requiredFieldmark)
+}
+
 // gqlCreateFieldDefinition takes a GqlFieldsDefinition, a tag string, and a SpecTagRequire
 // and returns a string representation of the GraphQL field definition.
 func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, tagValueToIgnore string, requiredTags *SpecTagRequire) (string, error) {
 	var thisFieldOutput string
 	var embeddedFieldOutput string
+	var err error
+
 	if field.GqlFieldIsEmbedded {
-		for _, embeddedField := range field.GqlGenFieldsEmbedded {
-			thisEmbeddedFieldOutput, err := gqlCreateFieldDefinition(embeddedField, tag, tagValueToIgnore, requiredTags)
-			if err != nil {
-				return "", err
-			}
-			embeddedFieldOutput += thisEmbeddedFieldOutput
+		embeddedFieldOutput, err = createEmbeddedFieldOutput(field, tag, tagValueToIgnore, requiredTags)
+		if err != nil {
+			return "", err
 		}
 	}
-
-	fieldName := field.GqlFieldName
-	requiredFieldmark := ""
 
 	tags, err := parseFieldTags(field)
 	if err != nil {
 		return "", err
 	}
 
-	fieldName, err = updateFieldName(fieldName, tags, tag)
+	fieldName, err := updateFieldName(field.GqlFieldName, tags, tag)
 	if err != nil {
 		return "", err
 	}
@@ -158,17 +175,16 @@ func gqlCreateFieldDefinition(field GqlFieldsDefinition, tag string, tagValueToI
 		return "", nil
 	}
 
-	requiredFieldmark, err = updateRequiredFieldMark(tags, requiredTags, requiredFieldmark)
+	requiredFieldmark, err := updateRequiredFieldMark(tags, requiredTags, "")
 	if err != nil {
 		return "", err
 	}
 
-	// Add this field only if it is not embedded
 	if !field.GqlFieldIsEmbedded {
-		thisFieldOutput = fmt.Sprintf("  %s: %s%s\n", fieldName, field.GqlFieldType, requiredFieldmark)
+		thisFieldOutput = createFieldOutput(field, fieldName, requiredFieldmark)
 	}
-	output := embeddedFieldOutput + thisFieldOutput
 
+	output := embeddedFieldOutput + thisFieldOutput
 	return output, nil
 }
 
