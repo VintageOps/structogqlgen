@@ -15,11 +15,12 @@ type GqlTypeDefinition struct {
 
 // GqlFieldsDefinition represents the definition of a GraphQL field.
 type GqlFieldsDefinition struct {
-	GqlFieldName     string              // GqlFieldName represents the name of a graphQL field
-	GqlFieldType     string              // GqlFieldType is a string representing the type of GraphQL field
-	GqlFieldTags     string              // GqlFieldTags represents the tags of a GraphQL field
-	IsCustomScalar   bool                // True if this field need to define a Scalar which will be type Name
-	NestedCustomType []GqlTypeDefinition // NestedCustomType represents any custom types that might be needed to be defined for this type.
+	GqlFieldName       string              // GqlFieldName represents the name of a graphQL field
+	GqlFieldType       string              // GqlFieldType is a string representing the type of GraphQL field
+	GqlFieldTags       string              // GqlFieldTags represents the tags of a GraphQL field
+	GqlFieldIsEmbedded bool                // GqlFieldIsEmbedded represents whether a GraphQL field is an embedded field.
+	IsCustomScalar     bool                // True if this field need to define a Scalar which will be type Name
+	NestedCustomType   []GqlTypeDefinition // NestedCustomType represents any custom types that might be needed to be defined for this type.
 }
 
 // gqlTypeIsCustScalar represents indicates whether a graphql type must be represented as a custom scalar type or not.
@@ -81,8 +82,9 @@ func BuildGqlgenType(structDef load.StructDiscovered) (GqlTypeDefinition, error)
 	for i := 0; i < structDef.Obj.NumFields(); i++ {
 		field := structDef.Obj.Field(i)
 		tags := structDef.Obj.Tag(i)
+		isEmbedded := field.Embedded()
 		// Populate Field Name and Tag
-		gqlTypeDef.GqlFields[i] = GqlFieldsDefinition{GqlFieldName: field.Name(), GqlFieldTags: tags}
+		gqlTypeDef.GqlFields[i] = GqlFieldsDefinition{GqlFieldName: field.Name(), GqlFieldTags: tags, GqlFieldIsEmbedded: isEmbedded}
 		// Find Field Type and Scalars
 		err := ConvertType(field.Type(), &gqlTypeDef.GqlFields[i])
 		if err != nil {
@@ -177,8 +179,19 @@ func convertMapType(t *types.Map, gqlFieldDef *GqlFieldsDefinition) error {
 
 // convertNamedType converts a named type into a GqlFieldsDefinition.
 func convertNamedType(t *types.Named, gqlFieldDef *GqlFieldsDefinition) error {
-	if _, ok := t.Underlying().(*types.Struct); ok {
+	if ts, ok := t.Underlying().(*types.Struct); ok {
 		gqlFieldDef.GqlFieldType = t.Obj().Id()
+		// If the field is embedded, then need to populate
+		if gqlFieldDef.GqlFieldIsEmbedded {
+			var newStructDiscManual load.StructDiscovered
+			newStructDiscManual.Name = t.Obj()
+			newStructDiscManual.Obj = ts
+			nestStructTypeDef, err := BuildGqlgenType(newStructDiscManual)
+			if err != nil {
+				return err
+			}
+			gqlFieldDef.NestedCustomType = append(gqlFieldDef.NestedCustomType, nestStructTypeDef)
+		}
 		return nil
 	} else {
 		gqlFieldDef.GqlFieldType = t.Obj().Name()
