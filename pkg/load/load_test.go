@@ -18,8 +18,8 @@ func TestFindStructsInPkg(t *testing.T) {
 
 	for _, testcase := range tests {
 		t.Run(testcase.sourceFilePath, func(t *testing.T) {
-			// Run the FindStructsInPkg function
-			result, err := FindStructsInPkg(testcase.sourceFilePath)
+			// Run the GetStructsFromSourceFile function
+			result, err := GetStructsFromSourceFile(testcase.sourceFilePath)
 
 			if err != nil && err.Error() != testcase.expectedError {
 				t.Errorf("expected error '%s', got '%s'", testcase.expectedError, err)

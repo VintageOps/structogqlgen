@@ -63,9 +63,18 @@ GLOBAL OPTIONS:
    --help, -h                               show help
 ```
 
+Running structogqlgen prints the generated Schema Definition on standard output (stdout), the output is segmented into two sections:
+
+- Custom Scalar Declaration
+This section displays the Custom Scalars that needs to be defined.
+It is to be highlighted that gqlgen ships with some built-in helpers for [common custom scalar use-cases](https://gqlgen.com/reference/scalars/#built-in-helpers) (Time, Any, Upload and Map). Adding any of these to a schema will automatically add the marshalling behaviour to Go types.
+Any other Scalar highlighted in this section needs to be implemented, [Gqlgen documentation](https://gqlgen.com/reference/scalars/#custom-scalars-with-user-defined-types) describes how this should be achieved, and there are some packages, such as [gql-bingInt](https://github.com/xplorfin/gql-bigint), that can help in this endeavour.
+
+- Graphql Type Definitions 
+
 ### Example:
 
-Using the example in pkg/examples_test/examples_test.go with
+Using the example in [pkg/examples_test/examples_test.go](https://github.com/VintageOps/structogqlgen/blob/main/pkg/examples_test/examples_test.go) with options to make use of json tags and to use the tag validate when set to "required" for finding the required fields.
 
 ```shell
 ~/go/bin/structogqlgen --src pkg/examples_test/examples_test.go --use-json-tags --required-tags validate=required
