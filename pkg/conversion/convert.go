@@ -1,3 +1,6 @@
+// Package conversion provides tools to systematically convert Go data structures into GraphQL schema elements
+// including types and fields, based on the type information extracted from Go source files using functions
+// from package github.com/VintageOps/structogqlgen/pkg/load
 package conversion
 
 import (
@@ -19,7 +22,7 @@ type GqlFieldsDefinition struct {
 	GqlFieldType         string                // GqlFieldType is a string representing the type of GraphQL field
 	GqlFieldTags         string                // GqlFieldTags represents the tags of a GraphQL field
 	GqlFieldIsEmbedded   bool                  // GqlFieldIsEmbedded represents whether a GraphQL field is an embedded field.
-	IsCustomScalar       bool                  // True if this field need to define a Scalar which will be type Name
+	IsCustomScalar       bool                  // IsCustomScalar is True if this field need to define a Scalar which will be type Name
 	NestedCustomType     []GqlTypeDefinition   // NestedCustomType represents any custom types that might be needed to be defined for this type.
 	GqlGenFieldsEmbedded []GqlFieldsDefinition // GqlGenFieldsEmbedded represents fields for Embedded Structs
 }
@@ -67,9 +70,25 @@ func (e ConvertCustomError) Error() string {
 	return string(e)
 }
 
+// InvalidTypeErr represents an error indicating an invalid type.
 const (
-	invalidTypeErr = ConvertCustomError("invalid type")
+	InvalidTypeErr = ConvertCustomError("invalid type")
 )
+
+// BuildGqlTypes builds an array of GqlTypeDefinitions for a given array of struct definitions.
+// It calls BuildGqlgenType for each struct definition and populates the array with the results.
+// If any error occurs during the process, it returns the error immediately.
+func BuildGqlTypes(structsFound []load.StructDiscovered) ([]GqlTypeDefinition, error) {
+	gqlGenTypes := make([]GqlTypeDefinition, len(structsFound))
+	for idx, structType := range structsFound {
+		var err error
+		gqlGenTypes[idx], err = BuildGqlgenType(structType)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return gqlGenTypes, nil
+}
 
 // BuildGqlgenType builds a GqlTypeDefinition for a given struct definition.
 // It converts the struct fields into GqlFieldsDefinition, populating the field name and tags.
@@ -113,7 +132,7 @@ func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 	case *types.Interface:
 		return convertInterfaceType(t, gqlFieldDef)
 	default:
-		return fmt.Errorf("%s: %v", invalidTypeErr, t.String())
+		return fmt.Errorf("%s: %v", InvalidTypeErr, t.String())
 	}
 }
 
@@ -121,7 +140,7 @@ func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 func convertBasicType(t *types.Basic, gqlFieldDef *GqlFieldsDefinition) error {
 
 	if t.Kind() == types.Invalid {
-		return fmt.Errorf("%v: %s", invalidTypeErr, t.String())
+		return fmt.Errorf("%v: %s", InvalidTypeErr, t.String())
 	}
 
 	if val, ok := MapBasicKindToGqlType[t.Kind()]; ok {
@@ -130,7 +149,7 @@ func convertBasicType(t *types.Basic, gqlFieldDef *GqlFieldsDefinition) error {
 		return nil
 	}
 
-	return fmt.Errorf("%v: %s", invalidTypeErr, t.String())
+	return fmt.Errorf("%v: %s", InvalidTypeErr, t.String())
 }
 
 // convertSliceType converts a Go type representing a slice into a GqlFieldsDefinition.

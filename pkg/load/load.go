@@ -1,3 +1,4 @@
+// Package load provides functionalities to parse and analyze Go source files to discover and retrieve struct type definitions.
 package load
 
 import (
@@ -11,13 +12,14 @@ import (
 
 // Doc: https://github.com/golang/example/blob/master/gotypes/go-types.md
 
+// StructDiscovered represents a discovered struct.
 type StructDiscovered struct {
 	Name *types.TypeName
 	Obj  *types.Struct
 }
 
-// FindStructsInPkg finds all structs defined in a Source File.
-func FindStructsInPkg(sourceFilePath string) ([]StructDiscovered, error) {
+// GetStructsFromSourceFile finds all structs defined in a Source File.
+func GetStructsFromSourceFile(sourceFilePath string) ([]StructDiscovered, error) {
 
 	var structTypes []StructDiscovered
 
