@@ -34,17 +34,17 @@ func TestFindStructsInPkg(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	// generate test data files
-	os.WriteFile("valid.go", []byte("package foo; type Bar struct { Counter int }"), 0600)
-	os.WriteFile("empty.go", []byte("package foo; type Foo int"), 0600)
-	os.WriteFile("invalid.go", []byte("invalid syntax"), 0600)
+	_ = os.WriteFile("valid.go", []byte("package foo; type Bar struct { Counter int }"), 0600)
+	_ = os.WriteFile("empty.go", []byte("package foo; type Foo int"), 0600)
+	_ = os.WriteFile("invalid.go", []byte("invalid syntax"), 0600)
 
 	// Run the test suite
 	retCode := m.Run()
 
 	// clean up test data files
-	os.Remove("valid.go")
-	os.Remove("empty.go")
-	os.Remove("invalid.go")
+	_ = os.Remove("valid.go")
+	_ = os.Remove("empty.go")
+	_ = os.Remove("invalid.go")
 
 	// pass on the exit code
 	os.Exit(retCode)
