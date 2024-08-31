@@ -81,6 +81,7 @@ Using the example in [pkg/examples_test/examples_test.go](https://github.com/Vin
 ```
 
 ```graphql
+scalar Time
 scalar PublicationStatus
 scalar error
 scalar interfaceEmpty
@@ -91,59 +92,59 @@ type Another {
 }
 
 type Article {
-  id: Int!
-  title: String
-  content: String
-  author: User
-  tags: [String]
-  comments: [Comment]
-  published_at: Time
-  status: PublicationStatus
-  error: error
-  anything: interfaceEmpty
-  do_something: DoSomethingMap
-  random_int: BigInt
-  another_random_int64: BigInt
-  created_at: Time
-  updated_at: Time
+    id: Int!
+    title: String
+    content: String
+    author: User
+    tags: [String]
+    comments: [Comment]
+    published_at: Time
+    status: PublicationStatus
+    error: error
+    anything: interfaceEmpty
+    do_something: DoSomethingMap
+    random_int: BigInt
+    another_random_int64: BigInt
+    created_at: Time
+    updated_at: Time
 }
 
 type DoSomethingMap {
-  key: String
-  values: interfacevalues
+    key: String
+    values: interfacevalues
 }
 
 type CMSData {
-  users: [User]
-  articles: [Article]
-  article_comments: ArticleCommentsMap
+    users: [User]
+    articles: [Article]
+    article_comments: ArticleCommentsMap
 }
 
 type ArticleCommentsMap {
-  key: Int
-  values: [Int]
+    key: Int
+    values: [Int]
 }
 
 type Comment {
-  id: Int
-  article_id: Int
-  author: User
-  content: String
-  created_at: Time
-  updated_at: Time
+    id: Int
+    article_id: Int
+    author: User
+    content: String
+    created_at: Time
+    updated_at: Time
 }
 
 type Metadata {
-  created_at: Time
-  updated_at: Time
+    created_at: Time
+    updated_at: Time
 }
 
 type User {
-  id: Int
-  username: String
-  email: String
-  verified: Boolean
-  created_at: Time
-  updated_at: Time
+    id: Int
+    username: String
+    email: String
+    verified: Boolean
+    created_at: Time
+    updated_at: Time
 }
 ```

@@ -22,6 +22,7 @@ type GqlFieldsDefinition struct {
 	GqlFieldType         string                // GqlFieldType is a string representing the type of GraphQL field
 	GqlFieldTags         string                // GqlFieldTags represents the tags of a GraphQL field
 	GqlFieldIsEmbedded   bool                  // GqlFieldIsEmbedded represents whether a GraphQL field is an embedded field.
+	GqlFieldPkgName      string                // GqlFieldPkgName represents the name of the package that defined the struct which contains this field
 	IsCustomScalar       bool                  // IsCustomScalar is True if this field need to define a Scalar which will be type Name
 	NestedCustomType     []GqlTypeDefinition   // NestedCustomType represents any custom types that might be needed to be defined for this type.
 	GqlGenFieldsEmbedded []GqlFieldsDefinition // GqlGenFieldsEmbedded represents fields for Embedded Structs
@@ -104,7 +105,7 @@ func BuildGqlgenType(structDef load.StructDiscovered) (GqlTypeDefinition, error)
 		tags := structDef.Obj.Tag(i)
 		isEmbedded := field.Embedded()
 		// Populate Field Name and Tag
-		gqlTypeDef.GqlFields[i] = GqlFieldsDefinition{GqlFieldName: field.Name(), GqlFieldTags: tags, GqlFieldIsEmbedded: isEmbedded}
+		gqlTypeDef.GqlFields[i] = GqlFieldsDefinition{GqlFieldName: field.Name(), GqlFieldTags: tags, GqlFieldIsEmbedded: isEmbedded, GqlFieldPkgName: structDef.PkgName}
 		// Find Field Type and Scalars
 		err := ConvertType(field.Type(), &gqlTypeDef.GqlFields[i])
 		if err != nil {
@@ -155,6 +156,7 @@ func convertBasicType(t *types.Basic, gqlFieldDef *GqlFieldsDefinition) error {
 // convertSliceType converts a Go type representing a slice into a GqlFieldsDefinition.
 func convertSliceType(t *types.Slice, gqlFieldDef *GqlFieldsDefinition) error {
 	var sliceTypeSql GqlFieldsDefinition
+	sliceTypeSql.GqlFieldPkgName = gqlFieldDef.GqlFieldPkgName
 	err := ConvertType(t.Elem(), &sliceTypeSql)
 	if err != nil {
 		return err
@@ -166,6 +168,7 @@ func convertSliceType(t *types.Slice, gqlFieldDef *GqlFieldsDefinition) error {
 // convertPointerType converts a pointer type into a GqlFieldsDefinition.
 func convertPointerType(t *types.Pointer, gqlFieldDef *GqlFieldsDefinition) error {
 	var pointerTypeSql GqlFieldsDefinition
+	pointerTypeSql.GqlFieldPkgName = gqlFieldDef.GqlFieldPkgName
 	err := ConvertType(t.Elem(), &pointerTypeSql)
 	if err != nil {
 		return err
@@ -189,6 +192,7 @@ func convertMapType(t *types.Map, gqlFieldDef *GqlFieldsDefinition) error {
 	var newStructDiscManual load.StructDiscovered
 	newStructDiscManual.Name = newStruct.Obj()
 	newStructDiscManual.Obj, _ = newStruct.Underlying().(*types.Struct)
+	newStructDiscManual.PkgName = gqlFieldDef.GqlFieldPkgName
 	nestStructTypeDef, err := BuildGqlgenType(newStructDiscManual)
 	if err != nil {
 		return err
@@ -201,16 +205,22 @@ func convertMapType(t *types.Map, gqlFieldDef *GqlFieldsDefinition) error {
 func convertNamedType(t *types.Named, gqlFieldDef *GqlFieldsDefinition) error {
 	if ts, ok := t.Underlying().(*types.Struct); ok {
 		gqlFieldDef.GqlFieldType = t.Obj().Id()
-		// If the field is embedded, then need to populate
-		if gqlFieldDef.GqlFieldIsEmbedded {
-			var newStructDiscManual load.StructDiscovered
-			newStructDiscManual.Name = t.Obj()
-			newStructDiscManual.Obj = ts
-			nestStructTypeDef, err := BuildGqlgenType(newStructDiscManual)
-			if err != nil {
-				return err
+		// If the package name of the struct that has this field is not the same as that of the field, then define as scalar
+		if gqlFieldDef.GqlFieldPkgName != t.Obj().Pkg().Name() {
+			gqlFieldDef.IsCustomScalar = true
+		} else {
+			// If the field is embedded, then need to populate
+			if gqlFieldDef.GqlFieldIsEmbedded {
+				var newStructDiscManual load.StructDiscovered
+				newStructDiscManual.Name = t.Obj()
+				newStructDiscManual.Obj = ts
+				newStructDiscManual.PkgName = gqlFieldDef.GqlFieldPkgName
+				nestStructTypeDef, err := BuildGqlgenType(newStructDiscManual)
+				if err != nil {
+					return err
+				}
+				gqlFieldDef.GqlGenFieldsEmbedded = nestStructTypeDef.GqlFields
 			}
-			gqlFieldDef.GqlGenFieldsEmbedded = nestStructTypeDef.GqlFields
 		}
 		return nil
 	} else {

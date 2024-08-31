@@ -14,8 +14,9 @@ import (
 
 // StructDiscovered represents a discovered struct.
 type StructDiscovered struct {
-	Name *types.TypeName
-	Obj  *types.Struct
+	Name    *types.TypeName
+	Obj     *types.Struct
+	PkgName string
 }
 
 // GetStructsFromSourceFile finds all structs defined in a Source File.
@@ -51,6 +52,7 @@ func GetStructsFromSourceFile(sourceFilePath string) ([]StructDiscovered, error)
 				var newStruct StructDiscovered
 				newStruct.Name = typeName
 				newStruct.Obj = structType
+				newStruct.PkgName = obj.Pkg().Name()
 				structTypes = append(structTypes, newStruct)
 			}
 		}
