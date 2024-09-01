@@ -1,5 +1,7 @@
 package examples
 
+import "time"
+
 // AdditionalData Example is a struct embedding multiple other structs and showcasing a variety of types.
 type AdditionalData struct {
 	Users           []User        `json:"users"`
@@ -8,3 +10,13 @@ type AdditionalData struct {
 }
 
 type extraArgs int64
+
+type structWithUnNamed struct {
+	Name        string `json:"name"`
+	Age         int    `json:"age"`
+	UnNamedType struct {
+		Name      string    `json:"name"`
+		CreatedAt time.Time `json:"created_at"`
+		DeletedAt time.Time `json:"deleted_at"`
+	} `json:"unnamed_type"`
+}
