@@ -11,7 +11,8 @@ type AdditionalData struct {
 
 type extraArgs int64
 
-type structWithUnNamed struct {
+// Non exported Structs that has an anonymous unexported Struct
+type structWithAnonymous struct {
 	Name        string `json:"name"`
 	Age         int    `json:"age"`
 	UnNamedType struct {

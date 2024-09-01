@@ -8,6 +8,7 @@ import (
 	"golang.org/x/tools/go/packages"
 	"log"
 	"path/filepath"
+	"strings"
 )
 
 /* Docs:
@@ -35,7 +36,7 @@ func GetStructsFromPath(path string) ([]StructDiscovered, error) {
 
 	// Configure the loader to load Go source files and their syntax trees.
 	cfg := &packages.Config{
-		Mode: packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax,
+		Mode: packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax | packages.NeedName,
 		Dir:  filepath.Dir(absPkgPath), // Set the Dir to the directory containing the package
 	}
 
@@ -85,6 +86,9 @@ func populateStructDiscoveredInPkg(pkg *packages.Package) []StructDiscovered {
 								PkgName: pkg.Name,
 							}
 							newStructs = append(newStructs, discovered)
+
+							// Now let's check for anonymous structs within this struct
+							newStructs = append(newStructs, findAnonymousStructs(structObj, pkg, obj.Name())...)
 						}
 					}
 				}
@@ -99,4 +103,33 @@ func populateStructDiscoveredInPkg(pkg *packages.Package) []StructDiscovered {
 	}
 
 	return newStructs
+}
+
+// findAnonymousStructs traverses the fields of a struct and finds any anonymous structs
+func findAnonymousStructs(structObj *types.Struct, pkg *packages.Package, parentStructName string) []StructDiscovered {
+	var anonymousStructs []StructDiscovered
+
+	// Iterate over the fields of the struct
+	for i := 0; i < structObj.NumFields(); i++ {
+		field := structObj.Field(i)
+		if field.Anonymous() || field.Embedded() {
+			continue
+		}
+		// Check if the field is an anonymous struct
+		if anonStruct, ok := field.Type().Underlying().(*types.Struct); ok {
+			// Move on only if the anonymous struct is owned by the same package
+			if anonStruct.NumFields() > 0 && strings.Compare(anonStruct.Field(0).Pkg().Name(), pkg.Name) == 0 {
+				discovered := StructDiscovered{
+					Name:    types.NewTypeName(field.Pos(), pkg.Types, fmt.Sprintf("%s.%s", parentStructName, field.Name()), field.Type()),
+					Obj:     anonStruct,
+					PkgName: pkg.Name,
+				}
+				anonymousStructs = append(anonymousStructs, discovered)
+				// Recursively find any anonymous structs within this struct
+				anonymousStructs = append(anonymousStructs, findAnonymousStructs(anonStruct, pkg, discovered.Name.Name())...)
+			}
+		}
+	}
+
+	return anonymousStructs
 }
