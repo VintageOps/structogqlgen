@@ -57,7 +57,7 @@ func Execute() {
 		}
 
 		// Check on required tag key value
-		if requiredTagsFlag != nil && len(requiredTagsFlag) > 0 {
+		if len(requiredTagsFlag) > 0 {
 			if len(requiredTagsFlag) > 1 {
 				return fmt.Errorf("invalid number of arguments for required-tags, expected only one key=value pair")
 			}
@@ -94,7 +94,7 @@ func printStructsAsGraphqlTypes(opts *cmdOptions) error {
 		return err
 	}
 
-	if structsFound == nil || len(structsFound) == 0 {
+	if len(structsFound) == 0 {
 		return fmt.Errorf("no structs found in given path %s", opts.fNamePathPkg)
 	}
 
