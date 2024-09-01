@@ -11,9 +11,8 @@ import (
 
 // cmdOptions contains the options that are set
 type cmdOptions struct {
-	fNameContStruct string                        //single file name
-	fNamePathPkg    string                        //directory path
-	printOpts       conversion.PrettyPrintOptions //Other print option
+	fNamePathPkg string                        //directory with package or single source file path
+	printOpts    conversion.PrettyPrintOptions //Other print option
 }
 
 var requiredTagsFlag map[string]string
@@ -21,16 +20,16 @@ var opts cmdOptions
 
 var rootCmd = &cobra.Command{
 	Use:   "structogqlgen [path]",
-	Short: "Converts Golang structs into GraphQL types for gqlgen",
+	Short: "Converts Golang structs defined on the go package or the go source defined by path into GraphQL types for gqlgen",
 	Long: `StructsToGqlGenTypes is a tool that helps automatically convert Golang structs into GraphQL types
 that are readily usable with the popular GraphQL framework, gqlgen. It aims to reduce the boilerplate code
 required to define GraphQL schemas manually, thus accelerating the development of GraphQL APIs in Go projects.`,
 	Version: "0.2",
+	Example: `structogqlgen pkg/examples --use-json-tags`,
 }
 
 func init() {
 	// Define flags
-	rootCmd.PersistentFlags().StringVarP(&opts.fNameContStruct, "src", "s", "", "if need to load from a single file, this is the path to the source file containing the structs to import (depracated as the same can be done without this option)")
 	rootCmd.PersistentFlags().BoolVarP(&opts.printOpts.UseJsonTags, "use-json-tags", "j", false, "Use JSON Tag as field name when available. If not present, the field name will be used.")
 	rootCmd.PersistentFlags().StringVarP(&opts.printOpts.UseCustomTags, "use-custom-tags", "c", "", "Specify a custom tag to use as field name. This takes precedence over JSON tags.")
 
@@ -49,11 +48,8 @@ func Execute() {
 	// Check Argument that should mutually exclude
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		// Check mutual exclusion
-		if len(args) > 0 && opts.fNameContStruct != "" {
-			return errors.New("cannot use both positional argument and --src flag simultaneously")
-		}
-		if len(args) == 0 && opts.fNameContStruct == "" {
-			return errors.New("either a positional argument or --src flag must be provided")
+		if len(args) == 0 {
+			return errors.New("the path to the package folder or to a single go source file must be provided")
 		}
 
 		if tagIgnored, _ := cmd.Flags().GetString("tags-value-ignored"); tagIgnored != "" {
@@ -93,27 +89,13 @@ func printStructsAsGraphqlTypes(opts *cmdOptions) error {
 	var structsFound []load.StructDiscovered
 
 	// Build StructsFound
-	if opts.fNameContStruct != "" {
-		structsFound, err = load.GetStructsFromPath(opts.fNameContStruct)
-		if err != nil {
-			return err
-		}
-	} else if opts.fNamePathPkg != "" {
-		structsFound, err = load.GetStructsFromPath(opts.fNamePathPkg)
-		if err != nil {
-			return err
-		}
+	structsFound, err = load.GetStructsFromPath(opts.fNamePathPkg)
+	if err != nil {
+		return err
 	}
 
 	if structsFound == nil || len(structsFound) == 0 {
-		var pathName string
-		if opts.fNameContStruct != "" {
-			pathName = opts.fNameContStruct
-		}
-		if opts.fNamePathPkg != "" {
-			pathName = opts.fNamePathPkg
-		}
-		return fmt.Errorf("no structs found in given path %s", pathName)
+		return fmt.Errorf("no structs found in given path %s", opts.fNamePathPkg)
 	}
 
 	// Conversion
