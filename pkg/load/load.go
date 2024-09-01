@@ -4,13 +4,16 @@ package load
 import (
 	"fmt"
 	"go/ast"
-	"go/importer"
-	"go/parser"
-	"go/token"
 	"go/types"
+	"golang.org/x/tools/go/packages"
+	"log"
+	"path/filepath"
 )
 
-// Doc: https://github.com/golang/example/blob/master/gotypes/go-types.md
+/* Docs:
+   https://github.com/golang/example/blob/master/gotypes/go-types.md
+   https://pkg.go.dev/golang.org/x/tools/go/packages#Package
+*/
 
 // StructDiscovered represents a discovered struct.
 type StructDiscovered struct {
@@ -19,48 +22,81 @@ type StructDiscovered struct {
 	PkgName string
 }
 
-// GetStructsFromSourceFile finds all structs defined in a Source File.
-func GetStructsFromSourceFile(sourceFilePath string) ([]StructDiscovered, error) {
+// GetStructsFromPath find all structs defined in a specific directory path
+func GetStructsFromPath(path string) ([]StructDiscovered, error) {
 
 	var structTypes []StructDiscovered
 
-	// Parse the provided source file
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, sourceFilePath, nil, 0)
+	// Determine the absolute path or resolve it relative to the module root
+	absPkgPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parsed the file, error was: %v", err)
+		log.Fatalf("Error resolving package path: %v", err)
 	}
 
-	// Type checks the parsed AST using types.Config.Check
-	// A Config controls various options of the type checker.
-	// The defaults work fine except for one setting:
-	// we must specify how to deal with imports.
-	conf := types.Config{Importer: importer.Default()}
-	pkg, err := conf.Check("mypkg", fset, []*ast.File{file}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to type check the file, error was: %v", err)
+	// Configure the loader to load Go source files and their syntax trees.
+	cfg := &packages.Config{
+		Mode: packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedSyntax,
+		Dir:  filepath.Dir(absPkgPath), // Set the Dir to the directory containing the package
 	}
 
-	// Get the package's scope, containing package-level declarations
-	scope := pkg.Scope()
-	for _, name := range scope.Names() {
-		obj := scope.Lookup(name)
-		// Check if this is  a type declaration (defined or alias)
-		if typeName, ok := obj.(*types.TypeName); ok {
-			// Check if the TypeName's underlying type is a Struct
-			if structType, ok := typeName.Type().Underlying().(*types.Struct); ok {
-				var newStruct StructDiscovered
-				newStruct.Name = typeName
-				newStruct.Obj = structType
-				newStruct.PkgName = obj.Pkg().Name()
-				structTypes = append(structTypes, newStruct)
+	// Load the packages in the specified directory.
+	pkgs, err := packages.Load(cfg, absPkgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate over the loaded packages.
+	for _, pkg := range pkgs {
+		if pkg.Errors != nil || len(pkg.Errors) > 0 {
+			var allErrors []string
+			for _, strErr := range pkg.Errors {
+				allErrors = append(allErrors, strErr.Msg)
 			}
+			return nil, fmt.Errorf("packages on path %s contain the following errors: %v", path, allErrors)
 		}
-	}
-
-	if len(structTypes) == 0 {
-		return structTypes, fmt.Errorf("no structs found")
+		newStructs := populateStructDiscoveredInPkg(pkg)
+		structTypes = append(structTypes, newStructs...)
 	}
 
 	return structTypes, nil
+}
+
+// populateStructDiscoveredInPkg returns a list of all structs discovered in a given package
+func populateStructDiscoveredInPkg(pkg *packages.Package) []StructDiscovered {
+
+	var newStructs []StructDiscovered
+
+	// Nested Function to Traverse AST and find struct types.
+	astInspectionFunc := func(n ast.Node) bool {
+		typeSpec, ok := n.(*ast.TypeSpec)
+		if ok {
+			// Check if this is a struct
+			_, ok := typeSpec.Type.(*ast.StructType)
+			if ok {
+				// Lookup the type in the package's type information.
+				if pkg.TypesInfo != nil {
+					obj := pkg.TypesInfo.Defs[typeSpec.Name]
+					if obj, ok := obj.(*types.TypeName); ok {
+						if structObj, ok := obj.Type().Underlying().(*types.Struct); ok {
+							// Create an instance of StructDiscovered and append to the list.
+							discovered := StructDiscovered{
+								Name:    obj,
+								Obj:     structObj,
+								PkgName: pkg.Name,
+							}
+							newStructs = append(newStructs, discovered)
+						}
+					}
+				}
+			}
+		}
+		return true
+	}
+
+	// Run the inspection
+	for _, syntax := range pkg.Syntax {
+		ast.Inspect(syntax, astInspectionFunc)
+	}
+
+	return newStructs
 }

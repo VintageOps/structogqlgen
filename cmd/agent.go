@@ -9,10 +9,11 @@ import (
 	"log"
 )
 
+// cmdOptions contains the options that are set
 type cmdOptions struct {
-	fNameContStruct string
-	fNamePathPkg    string
-	printOpts       conversion.PrettyPrintOptions
+	fNameContStruct string                        //single file name
+	fNamePathPkg    string                        //directory path
+	printOpts       conversion.PrettyPrintOptions //Other print option
 }
 
 var requiredTagsFlag map[string]string
@@ -24,11 +25,12 @@ var rootCmd = &cobra.Command{
 	Long: `StructsToGqlGenTypes is a tool that helps automatically convert Golang structs into GraphQL types
 that are readily usable with the popular GraphQL framework, gqlgen. It aims to reduce the boilerplate code
 required to define GraphQL schemas manually, thus accelerating the development of GraphQL APIs in Go projects.`,
+	Version: "0.2",
 }
 
 func init() {
 	// Define flags
-	rootCmd.PersistentFlags().StringVarP(&opts.fNameContStruct, "src", "s", "", "`SRC_PATH` is the required path to the source file containing the structs to import")
+	rootCmd.PersistentFlags().StringVarP(&opts.fNameContStruct, "src", "s", "", "if need to load from a single file, this is the path to the source file containing the structs to import (depracated as the same can be done without this option)")
 	rootCmd.PersistentFlags().BoolVarP(&opts.printOpts.UseJsonTags, "use-json-tags", "j", false, "Use JSON Tag as field name when available. If not present, the field name will be used.")
 	rootCmd.PersistentFlags().StringVarP(&opts.printOpts.UseCustomTags, "use-custom-tags", "c", "", "Specify a custom tag to use as field name. This takes precedence over JSON tags.")
 
@@ -90,18 +92,31 @@ func printStructsAsGraphqlTypes(opts *cmdOptions) error {
 	var err error
 	var structsFound []load.StructDiscovered
 
+	// Build StructsFound
 	if opts.fNameContStruct != "" {
-		structsFound, err = load.GetStructsFromSourceFile(opts.fNameContStruct)
-	}
-
-	if opts.fNamePathPkg != "" {
+		structsFound, err = load.GetStructsFromPath(opts.fNameContStruct)
+		if err != nil {
+			return err
+		}
+	} else if opts.fNamePathPkg != "" {
 		structsFound, err = load.GetStructsFromPath(opts.fNamePathPkg)
+		if err != nil {
+			return err
+		}
 	}
 
-	if err != nil {
-		return err
+	if structsFound == nil || len(structsFound) == 0 {
+		var pathName string
+		if opts.fNameContStruct != "" {
+			pathName = opts.fNameContStruct
+		}
+		if opts.fNamePathPkg != "" {
+			pathName = opts.fNamePathPkg
+		}
+		return fmt.Errorf("no structs found in given path %s", pathName)
 	}
 
+	// Conversion
 	gqlGenTypes, err := conversion.BuildGqlTypes(structsFound)
 	if err != nil {
 		return err

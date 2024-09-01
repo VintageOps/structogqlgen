@@ -77,7 +77,7 @@ Any other Scalar highlighted in this section needs to be implemented, [Gqlgen do
 Using the example in [pkg/examples_test/examples_test.go](https://github.com/VintageOps/structogqlgen/blob/main/pkg/examples_test/examples_test.go) with options to make use of json tags and to use the tag validate when set to "required" for finding the required fields.
 
 ```shell
-~/go/bin/structogqlgen --src pkg/examples_test/examples_test.go --use-json-tags --required-tags validate=required
+~/go/bin/structogqlgen --src pkg/examples/examples.go --use-json-tags --required-tags validate=required
 ```
 
 ```graphql
