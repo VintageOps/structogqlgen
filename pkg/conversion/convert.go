@@ -8,6 +8,7 @@ import (
 	"github.com/VintageOps/structogqlgen/pkg/load"
 	"go/token"
 	"go/types"
+	"strings"
 )
 
 // GqlTypeDefinition contains the definition of a graphQl Type
@@ -98,7 +99,7 @@ func BuildGqlgenType(structDef load.StructDiscovered) (GqlTypeDefinition, error)
 
 	var gqlTypeDef GqlTypeDefinition
 
-	gqlTypeDef.GqlTypeName = structDef.Name.Id()
+	gqlTypeDef.GqlTypeName = sanitizeIdName(structDef.Name.Id())
 	gqlTypeDef.GqlFields = make([]GqlFieldsDefinition, structDef.Obj.NumFields())
 	for i := 0; i < structDef.Obj.NumFields(); i++ {
 		field := structDef.Obj.Field(i)
@@ -132,6 +133,8 @@ func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 		return convertNamedType(t, gqlFieldDef)
 	case *types.Interface:
 		return convertInterfaceType(t, gqlFieldDef)
+	case *types.Struct:
+		return convertAnonymousStructType(t, gqlFieldDef)
 	default:
 		return fmt.Errorf("%s: %v", InvalidTypeErr, t.String())
 	}
@@ -240,4 +243,27 @@ func convertInterfaceType(t *types.Interface, gqlFieldDef *GqlFieldsDefinition) 
 	}
 	gqlFieldDef.IsCustomScalar = true
 	return nil
+}
+
+// convertAnonymousStructType convert a *types.Struct (anonymous struct) into a GqlFieldsDefinition.
+func convertAnonymousStructType(t *types.Struct, gqlFieldDef *GqlFieldsDefinition) error {
+	// Set the type same as FieldName (the struct with that name is processed separately)
+	gqlFieldDef.GqlFieldType = gqlFieldDef.GqlFieldName
+	return nil
+}
+
+// sanitizeIdName is helper function to simply sanitize the Id()
+// returned by https://pkg.go.dev/go/types#Object and have a short name
+func sanitizeIdName(s string) string {
+	if s == "" {
+		return s
+	}
+
+	splitBySlash := strings.Split(s, "/")
+	output1 := splitBySlash[len(splitBySlash)-1]
+
+	splitByDot := strings.Split(output1, ".")
+	output := splitByDot[len(splitByDot)-1]
+
+	return output
 }
