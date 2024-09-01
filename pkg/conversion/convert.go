@@ -132,6 +132,8 @@ func ConvertType(goType types.Type, gqlFieldDef *GqlFieldsDefinition) error {
 		return convertNamedType(t, gqlFieldDef)
 	case *types.Interface:
 		return convertInterfaceType(t, gqlFieldDef)
+	case *types.Struct:
+		return convertAnonymousStructType(t, gqlFieldDef)
 	default:
 		return fmt.Errorf("%s: %v", InvalidTypeErr, t.String())
 	}
@@ -239,5 +241,12 @@ func convertInterfaceType(t *types.Interface, gqlFieldDef *GqlFieldsDefinition) 
 		gqlFieldDef.GqlFieldType = fmt.Sprintf("interface%s", gqlFieldDef.GqlFieldName)
 	}
 	gqlFieldDef.IsCustomScalar = true
+	return nil
+}
+
+// convertAnonymousStructType convert a *types.Struct (anonymous struct) into a GqlFieldsDefinition.
+func convertAnonymousStructType(t *types.Struct, gqlFieldDef *GqlFieldsDefinition) error {
+	// Set the type same as FieldName (the struct with that name is processed separately)
+	gqlFieldDef.GqlFieldType = gqlFieldDef.GqlFieldName
 	return nil
 }
