@@ -119,14 +119,17 @@ func findAnonymousStructs(structObj *types.Struct, pkg *packages.Package, parent
 		if anonStruct, ok := field.Type().Underlying().(*types.Struct); ok {
 			// Move on only if the anonymous struct is owned by the same package
 			if anonStruct.NumFields() > 0 && strings.Compare(anonStruct.Field(0).Pkg().Name(), pkg.Name) == 0 {
-				discovered := StructDiscovered{
-					Name:    types.NewTypeName(field.Pos(), pkg.Types, fmt.Sprintf("%s.%s", parentStructName, field.Name()), field.Type()),
-					Obj:     anonStruct,
-					PkgName: pkg.Name,
+				// Confirm this field is not a Named Struct
+				if _, isNamedOk := field.Type().(*types.Named); !isNamedOk {
+					discovered := StructDiscovered{
+						Name:    types.NewTypeName(field.Pos(), pkg.Types, fmt.Sprintf("%s.%s", parentStructName, field.Name()), field.Type()),
+						Obj:     anonStruct,
+						PkgName: pkg.Name,
+					}
+					anonymousStructs = append(anonymousStructs, discovered)
+					// Recursively find any anonymous structs within this struct
+					anonymousStructs = append(anonymousStructs, findAnonymousStructs(anonStruct, pkg, discovered.Name.Name())...)
 				}
-				anonymousStructs = append(anonymousStructs, discovered)
-				// Recursively find any anonymous structs within this struct
-				anonymousStructs = append(anonymousStructs, findAnonymousStructs(anonStruct, pkg, discovered.Name.Name())...)
 			}
 		}
 	}

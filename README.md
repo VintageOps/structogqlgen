@@ -78,14 +78,12 @@ Using the example in [pkg/examples](https://github.com/VintageOps/structogqlgen/
 ```
 
 ```graphql
-scalar Metadata
-scalar User
-scalar PublicationStatus
 scalar error
 scalar interfaceEmpty
 scalar interfacevalues
 scalar BigInt
 scalar Time
+scalar PublicationStatus
 
 type AdditionalData {
     users: [User]
@@ -96,6 +94,18 @@ type AdditionalData {
 type ArticleCommentsMap {
     key: Int
     values: [Int]
+}
+
+type structWithAnonymous {
+    name: String
+    age: Int
+    unnamed_type: UnNamedType
+}
+
+type UnNamedType {
+    name: String
+    created_at: Time
+    deleted_at: Time
 }
 
 type Another {
@@ -112,6 +122,8 @@ type User {
     username: String
     email: String
     verified: Boolean
+    created_at: Time
+    updated_at: Time
 }
 
 type Article {
@@ -128,6 +140,8 @@ type Article {
     do_something: DoSomethingMap
     random_int: BigInt
     another_random_int64: BigInt
+    created_at: Time
+    updated_at: Time
 }
 
 type DoSomethingMap {
@@ -140,6 +154,8 @@ type Comment {
     article_id: Int
     author: User
     content: String
+    created_at: Time
+    updated_at: Time
 }
 
 type CMSData {
