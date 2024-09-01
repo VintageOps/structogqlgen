@@ -1,4 +1,4 @@
-package examples_test
+package examples
 
 import (
 	"fmt"
@@ -6,7 +6,9 @@ import (
 )
 
 // Another Example Is just an example Struct
-type Another struct{}
+type Another struct {
+	Name string
+}
 
 // DoSomething Examples prints a message indicating that 'Another' is doing something.
 // This method belongs to the 'Another' struct.

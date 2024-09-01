@@ -13,13 +13,13 @@ func TestFindStructsInPkg(t *testing.T) {
 	}{
 		{"valid.go", "", 1},
 		{"empty.go", "no structs found", 0},
-		{"invalid.go", "failed to parsed the file, error was: invalid.go:1:1: expected 'package', found invalid", 0},
+		{"invalid.go", "packages on path invalid.go contain the following errors: [expected 'package', found invalid expected 'package', found invalid]", 0},
 	}
 
 	for _, testcase := range tests {
 		t.Run(testcase.sourceFilePath, func(t *testing.T) {
 			// Run the GetStructsFromSourceFile function
-			result, err := GetStructsFromSourceFile(testcase.sourceFilePath)
+			result, err := GetStructsFromPath(testcase.sourceFilePath)
 
 			if err != nil && err.Error() != testcase.expectedError {
 				t.Errorf("expected error '%s', got '%s'", testcase.expectedError, err)

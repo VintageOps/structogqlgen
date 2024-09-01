@@ -41,26 +41,23 @@ import github.com/VintageOps/structogqlgen
 
 ```shell
 ~/go/bin/structogqlgen -h
-NAME:
-   structogqlgen - Converts Golang structs into GraphQL types that are readily usable with the popular GraphQL framework, gqlgen
+StructsToGqlGenTypes is a tool that helps automatically convert Golang structs into GraphQL types
+that are readily usable with the popular GraphQL framework, gqlgen. It aims to reduce the boilerplate code
+required to define GraphQL schemas manually, thus accelerating the development of GraphQL APIs in Go projects.
 
-USAGE:
-   structogqlgen [global options] 
+Usage:
+  structogqlgen [path] [flags]
 
-DESCRIPTION:
-   StructsToGqlGenTypes is a tool that helps to automatically converts Golang structs into GraphQL types that are readily usable with the popular GraphQL framework, gqlgen.
-   It aims to reduce the boilerplate code required to define GraphQL schemas manually, thus accelerating the development of GraphQL APIs in Go projects.
+Examples:
+structogqlgen pkg/examples --use-json-tags
 
-AUTHOR:
-   VintageOps
-
-GLOBAL OPTIONS:
-   --src SRC_PATH, -s SRC_PATH              SRC_PATH is the required path to the source file containing the structs to import (required)
-   --use-json-tags, -j                      Use JSON Tag as field name when available. If this is selected and a field has no Json tag, then the field name will be used. (default: false)
-   --use-custom-tags value, -c value        Specify a custom tag to use as field name. Specifying this takes precedence over JSON tags. If specifed and a field does not have this tag, the field name will be used
-   --tags-value-ignored value, -i value     Specify a tag value that signal to ignore Field with tag having this value. When using json tags with use-json-tags option, if this not specified, it is automatically set to '-'
-   --required-tags key=value, -r key=value  If there is a tag that make a field required, specified that tag using the format key=value. e.g. validate=required
-   --help, -h                               show help
+Flags:
+  -h, --help                        help for structogqlgen
+  -r, --required-tags key=value     If there is a tag that make a field required, specified that tag using the format key=value. e.g. validate=required (default [])
+  -i, --tags-value-ignored string   Specify a tag value that signals to ignore a field with this tag value.Automatically set to '-' for JSON tags if not specified. (default "-")
+  -c, --use-custom-tags string      Specify a custom tag to use as field name. This takes precedence over JSON tags.
+  -j, --use-json-tags               Use JSON Tag as field name when available. If not present, the field name will be used.
+  -v, --version                     version for structogqlgen
 ```
 
 Running structogqlgen prints the generated Schema Definition on standard output (stdout), the output is segmented into two sections:
@@ -74,21 +71,47 @@ Any other Scalar highlighted in this section needs to be implemented, [Gqlgen do
 
 ### Example:
 
-Using the example in [pkg/examples_test/examples_test.go](https://github.com/VintageOps/structogqlgen/blob/main/pkg/examples_test/examples_test.go) with options to make use of json tags and to use the tag validate when set to "required" for finding the required fields.
+Using the example in [pkg/examples](https://github.com/VintageOps/structogqlgen/blob/main/pkg/examples) with options to make use of json tags and to use the tag validate when set to "required" for finding the required fields.
 
 ```shell
-~/go/bin/structogqlgen --src pkg/examples_test/examples_test.go --use-json-tags --required-tags validate=required
+~/go/bin/structogqlgen pkg/examples --use-json-tags --required-tags validate=required
 ```
 
 ```graphql
-scalar Time
+scalar Metadata
+scalar User
 scalar PublicationStatus
 scalar error
 scalar interfaceEmpty
 scalar interfacevalues
 scalar BigInt
+scalar Time
+
+type AdditionalData {
+    users: [User]
+    articles: [Article]
+    article_comments: ArticleCommentsMap
+}
+
+type ArticleCommentsMap {
+    key: Int
+    values: [Int]
+}
 
 type Another {
+    Name: String
+}
+
+type Metadata {
+    created_at: Time
+    updated_at: Time
+}
+
+type User {
+    id: Int
+    username: String
+    email: String
+    verified: Boolean
 }
 
 type Article {
@@ -105,13 +128,18 @@ type Article {
     do_something: DoSomethingMap
     random_int: BigInt
     another_random_int64: BigInt
-    created_at: Time
-    updated_at: Time
 }
 
 type DoSomethingMap {
     key: String
     values: interfacevalues
+}
+
+type Comment {
+    id: Int
+    article_id: Int
+    author: User
+    content: String
 }
 
 type CMSData {
@@ -123,28 +151,5 @@ type CMSData {
 type ArticleCommentsMap {
     key: Int
     values: [Int]
-}
-
-type Comment {
-    id: Int
-    article_id: Int
-    author: User
-    content: String
-    created_at: Time
-    updated_at: Time
-}
-
-type Metadata {
-    created_at: Time
-    updated_at: Time
-}
-
-type User {
-    id: Int
-    username: String
-    email: String
-    verified: Boolean
-    created_at: Time
-    updated_at: Time
 }
 ```
