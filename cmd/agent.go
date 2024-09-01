@@ -20,7 +20,7 @@ var opts cmdOptions
 
 var rootCmd = &cobra.Command{
 	Use:   "structogqlgen [path]",
-	Short: "Converts Golang structs defined on the go package or the go source defined by path into GraphQL types for gqlgen",
+	Short: "Converts Golang structs defined on the specified path, which can be either a go package folder or a single go source file, into GraphQL types for gqlgen",
 	Long: `StructsToGqlGenTypes is a tool that helps automatically convert Golang structs into GraphQL types
 that are readily usable with the popular GraphQL framework, gqlgen. It aims to reduce the boilerplate code
 required to define GraphQL schemas manually, thus accelerating the development of GraphQL APIs in Go projects.`,
